@@ -146,16 +146,16 @@ async function get_nami_token_info(token_symbol) {
         };
 
         // --- Tạo một chuỗi tóm tắt CÓ CẤU TRÚC để Gemini dễ dàng tổng hợp ---
-        let summaryString = `Thông tin chi tiết về ${formattedData.name} (${formattedData.symbol}):\n\n`;
+        let summaryString = `**Thông tin chi tiết về ${formattedData.name} (${formattedData.symbol}):**\n\n`;
 
         // 1. Mục đích/Trường hợp sử dụng
         if (formattedData.use_case_summary && formattedData.use_case_summary !== 'Không có mô tả chi tiết.') {
-            summaryString += `Mục đích/Trường hợp sử dụng/Dùng để làm gì: ${formattedData.use_case_summary}\n\n`;
+            summaryString += `**Mục đích/Trường hợp sử dụng/Dùng để làm gì:** ${formattedData.use_case_summary}\n\n`;
         }
 
         // 2. Dữ liệu thị trường
         if (formattedData.market_data && formattedData.market_data.current_price_usd) {
-            summaryString += `Dữ liệu thị trường hiện tại:\n`;
+            summaryString += `**Dữ liệu thị trường hiện tại:**\n`;
             summaryString += `- Giá: ${formattedData.market_data.current_price_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} (cập nhật gần đây)\n`;
             summaryString += `- Vốn hóa thị trường: ${formattedData.market_data.market_cap_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}\n`;
             summaryString += `- Khối lượng giao dịch 24h: ${formattedData.market_data.total_volume_24h_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}\n`;
@@ -167,7 +167,7 @@ async function get_nami_token_info(token_symbol) {
 
         // 3. Tokenomics
         if (formattedData.tokenomics.circulating_supply || formattedData.tokenomics.total_supply) {
-            summaryString += `Tokenomics:\n`;
+            summaryString += `**Tokenomics:**\n`;
             summaryString += `- Tổng cung lưu hành: ${formattedData.tokenomics.circulating_supply ? formattedData.tokenomics.circulating_supply.toLocaleString() : 'N/A'}\n`;
             summaryString += `- Tổng cung tối đa: ${formattedData.tokenomics.max_supply ? formattedData.tokenomics.max_supply.toLocaleString() : 'N/A'}\n\n`;
         }

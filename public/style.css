@@ -51,7 +51,7 @@ body {
 
 .message.user {
     align-self: flex-end;
-    background-color: #007bff;
+    background-color: #7ed881;
     color: white;
     border-bottom-right-radius: 2px;
 }

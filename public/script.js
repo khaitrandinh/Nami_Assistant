@@ -5,12 +5,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Hàm để thêm tin nhắn vào giao diện chat
     function addMessage(sender, text) {
-        const messageElement = document.createElement('div');
-        messageElement.classList.add('message', sender);
-        messageElement.innerHTML = text.replace(/\n/g, '<br>'); // Thay thế ký tự xuống dòng bằng <br>
-        chatMessages.appendChild(messageElement);
-        chatMessages.scrollTop = chatMessages.scrollHeight; // Cuộn xuống cuối
-    }
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', sender);
+    // Chuyển đổi Markdown thành HTML
+    // Đảm bảo bạn đã thêm <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> vào index.html
+    messageElement.innerHTML = marked.parse(text); // SỬA ĐỔI DÒNG NÀY
+
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
 
     // Hàm gửi tin nhắn
     async function sendMessage() {
