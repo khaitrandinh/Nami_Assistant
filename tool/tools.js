@@ -13,7 +13,7 @@ const tools = [
     function_declarations: [
       {
         name: "get_nami_token_info",
-        description: "Truy xuất thông tin chi tiết và toàn diện về một token tiền điện tử từ Nami Exchange. Bao gồm mục đích sử dụng, công nghệ, giá hiện tại, vốn hóa thị trường, khối lượng giao dịch 24h, biến động giá, thông tin tokenomics (tổng cung, cung lưu hành), và các liên kết chính thức. **Sử dụng hàm này để trả lời bất kỳ câu hỏi nào về thông tin của một loại tiền điện tử cụ thể (ví dụ: BTC, ETH, SUI, AVAX).**",
+        description: "Truy xuất thông tin chi tiết và toàn diện về một token tiền điện tử từ Nami Exchange. Bao gồm mục đích sử dụng, công nghệ, giá hiện tại, vốn hóa thị trường, khối lượng giao dịch 24h, biến động giá, thông tin tokenomics (tổng cung, cung lưu hành), và các liên kết chính thức. **Sử dụng hàm này để trả lời bất kỳ câu hỏi nào về thông tin của một loại tiền điện tử cụ thể (ví dụ: BTC, ETH, SUI, AVAX, NAMI, NAO,...).**",
         parameters: {
           type: "OBJECT",
           properties: {
