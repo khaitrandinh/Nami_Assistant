@@ -13,7 +13,7 @@ app.use(express.json());
 const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(GOOGLE_GEMINI_API_KEY);
 
-const allowedOrigins = ["http://192.168.177.1:3000", "http://localhost:3000"];
+const allowedOrigins = [ "http://localhost:3000","https://nami-assistant.vercel.app/"];
 app.use(cors({
   origin: allowedOrigins,
   methods: ["GET", "POST"],
