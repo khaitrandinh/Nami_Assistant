@@ -1,0 +1,39 @@
+# === Node modules ===
+node_modules/
+**/node_modules/
+crypto-news-charts/node_modules/
+# === Environment files ===
+.env
+**/.env
+# === test files ===
+test.js
+test2.js
+# === Lock files ===
+yarn.lock
+pnpm-lock.yaml
+
+# === Build output ===
+build/
+**/build/
+
+# === Logs and system files ===
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === IDE and OS metadata ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# === Optional: ignore submodule if still lingering ===
+.gitmodules
+.git/config
+.git/modules/
+
+# === Optional: ignore dist or output folders ===
+dist/
+**/dist/
