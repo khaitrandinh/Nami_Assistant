@@ -8,6 +8,7 @@ crypto-news-charts/node_modules/
 # === test files ===
 test.js
 test2.js
+testGhost.js
 # === Lock files ===
 yarn.lock
 pnpm-lock.yaml

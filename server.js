@@ -24,15 +24,15 @@ const model = genAI.getGenerativeModel({
     model: "gemini-2.0-flash",
     tools: tools,
     systemInstruction: `Bạn là một AI assistant chuyên về tiền điện tử và các sản phẩm của Nami.
-    Bạn sẽ trả lời bằng ngôn ngữ mà người dùng đã sử dụng để đặt câu hỏi.
-    Bạn không có bất kỳ kiến thức nội bộ nào về tiền điện tử, giá cả hay các sản phẩm liên quan.
-    Cách duy nhất để bạn có được thông tin là thông qua các API mà bạn có quyền truy cập (các công cụ được định nghĩa).
-    Do đó, bạn BẮT BUỘC phải sử dụng các công cụ của mình để truy xuất dữ liệu từ API Nami trước khi trả lời bất kỳ câu hỏi nào về một token cụ thể, giá cả, hoặc thông tin liên quan đến Nami.
-    Bạn không bao giờ được phép trả lời trực tiếp các câu hỏi liên quan đến dữ liệu tiền điện tử mà không có phản hồi từ công cụ.
-    Bạn sẽ KHÔNG BAO GIỜ thông báo rằng bạn "không có quyền truy cập API" hoặc "cần API". Bạn CÓ quyền truy cập thông qua các công cụ của mình và BẠN PHẢI sử dụng chúng.
+    - Bạn sẽ trả lời bằng ngôn ngữ mà người dùng đã sử dụng để đặt câu hỏi.
+    - Bạn không có bất kỳ kiến thức nội bộ nào về tiền điện tử, giá cả hay các sản phẩm liên quan.
+    - Cách duy nhất để bạn có được thông tin là thông qua các API mà bạn có quyền truy cập (các công cụ được định nghĩa).
+    - Do đó, bạn BẮT BUỘC phải sử dụng các công cụ của mình để truy xuất dữ liệu từ API Nami trước khi trả lời bất kỳ câu hỏi nào về một token cụ thể, giá cả, hoặc thông tin liên quan đến Nami.
+    - Bạn không bao giờ được phép trả lời trực tiếp các câu hỏi liên quan đến dữ liệu tiền điện tử mà không có phản hồi từ công cụ.
+    - Bạn sẽ KHÔNG BAO GIỜ thông báo rằng bạn "không có quyền truy cập API" hoặc "cần API". Bạn CÓ quyền truy cập thông qua các công cụ của mình và BẠN PHẢI sử dụng chúng.
 
-    Khi người dùng hỏi về một token, hãy trả lời TRỰC TIẾP và NGẮN GỌN nhất có thể về trọng tâm câu hỏi.
-    Sau khi trả lời trọng tâm, bạn có thể bổ sung một cách KHÁI QUÁT và SÚC TÍCH các thông tin quan trọng khác về token (như giá, vốn hóa, tổng quan). KHÔNG cần liệt kê quá chi tiết nếu không được yêu cầu rõ ràng.
+    - Khi người dùng hỏi về một token, hãy trả lời TRỰC TIẾP và NGẮN GỌN nhất có thể về trọng tâm câu hỏi.
+    - Sau khi trả lời trọng tâm, bạn có thể bổ sung một cách KHÁI QUÁT và SÚC TÍCH các thông tin quan trọng khác về token (như giá, vốn hóa, tổng quan). KHÔNG cần liệt kê quá chi tiết nếu không được yêu cầu rõ ràng.
 
     Hướng dẫn khi sử dụng dữ liệu:
     - Sử dụng các tiêu đề hoặc các điểm gạch đầu dòng (bullet points) để trình bày thông tin rõ ràng và dễ đọc.
@@ -122,12 +122,12 @@ app.post('/ask-assistant', async (req, res) => {
             }
 
             console.log("Attempting to call function:", call.name, "with arguments:", Object.values(call.args));
-            const apiResult = await func(...Object.values(call.args)); // Thực thi hàm với các đối số
+            const apiResult = await func(...Object.values(call.args)); 
 
             console.log("API response:", apiResult);
 
             // Gửi kết quả của hàm trở lại cho Gemini
-            const newResponse = await chat.sendMessage([ // Đổi tên biến để tránh nhầm lẫn
+            const newResponse = await chat.sendMessage([ 
                 {
                     functionResponse: {
                         name: call.name,

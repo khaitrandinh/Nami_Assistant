@@ -181,8 +181,8 @@ async function get_nami_token_info(token_symbol) {
 
         return {
             source: "Nami",
-            summary: summaryString, // TRẢ VỀ CHUỖI TÓM TẮT ĐỂ GEMINI DỄ DÙNG
-            full_data_extracted: formattedData // Dữ liệu đầy đủ đã được trích xuất (để debug nếu cần)
+            summary: summaryString, 
+            full_data_extracted: formattedData 
         };
 
     } catch (error) {
