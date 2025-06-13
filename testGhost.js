@@ -1,89 +1,148 @@
+const axios = require('axios');
+require('dotenv').config();
+const { convert } = require('html-to-text');
+
+const NAMI_BLOG_API_BASE_URL = process.env.NAMI_BLOG_API_BASE_URL;
+const NAMI_BLOG_API_KEY = process.env.NAMI_BLOG_API_KEY; 
+
+let allNamiBlogPosts = [];
 
 
-const siteUrl = 'https://blog.nami.exchange';
-const contentApiKey = 'bafd2bfa46387a4f2ce13c7ea0';
-async function fetchAllPosts() {
-  const perPage = 100; // max per request
-  let page = 1;
-  let allPosts = [];
-  let totalPages = 1;
-  do {
-    const url = `${siteUrl}/ghost/api/content/posts/?key=${contentApiKey}&limit=${perPage}&page=${page}&filter=visibility:public`;
-    const response = await fetch(url);
-    const data = await response.json();
-    allPosts = allPosts.concat(data.posts);
-    totalPages = data.meta.pagination.pages;
-    page += 1;
-  } while (page <= totalPages);
-  return allPosts;
-}
-fetchAllPosts()
-  .then(posts => {
-    console.log(`Fetched ${posts.length} published posts.`);
-    // console.log(posts);
-  })
-  .catch(error => {
-    console.error('Error fetching posts:', error);
-  });
+// const siteUrl = 'https://blog.nami.exchange';
+// const contentApiKey = 'bafd2bfa46387a4f2ce13c7ea0';
+// async function fetchAllPosts() {
+//   const perPage = 100; // max per request
+//   let page = 1;
+//   let allPosts = [];
+//   let totalPages = 1;
+//   do {
+//     const url = `${siteUrl}/ghost/api/content/posts/?key=${contentApiKey}&limit=${perPage}&page=${page}&filter=visibility:public`;
+//     const response = await fetch(url);
+//     const data = await response.json();
+//     allPosts = allPosts.concat(data.posts);
+//     totalPages = data.meta.pagination.pages;
+//     page += 1;
+//   } while (page <= totalPages);
+//   return allPosts;
+// }
+// fetchAllPosts()
+//   .then(posts => {
+//     console.log(`Fetched ${posts.length} published posts.`);
+//     // console.log(posts);
+//   })
+//   .catch(error => {
+//     console.error('Error fetching posts:', error);
+//   });
 
 
+async function fetchAllNamiBlogPosts() {
+    if (allNamiBlogPosts.length > 0) {
+        // Trả về cache nếu đã có dữ liệu và không quá cũ (có thể thêm logic TTL)
+        // Ví dụ, không fetch lại trong X phút
+        // return allNamiBlogPosts;
+    }
 
-async function get_nami_news(query_type = 'latest') { // query_type có thể là 'latest', 'trending', 'campaigns'
-    console.log(`Calling Nami News API for type: ${query_type}`);
+    const perPage = 100; // max per request for Ghost API
+    let page = 1;
+    let posts = [];
+    let totalPages = 1;
+
     try {
-        // Đây là ví dụ cho Ghost Content API. Bạn cần cấu hình đúng endpoint và API Key.
-        // Hoặc bạn có thể tạo dữ liệu giả lập như ví dụ bên dưới
-        const response = await axios.get(`${NAMI_NEWS_API_BASE_URL}/posts`, {
-            params: {
-                key: NAMI_NEWS_API_KEY,
-                limit: 1, // Lấy 1 bài mới nhất
-                fields: 'title,slug,html,url,published_at,custom_excerpt' // Lấy các trường cần thiết
-            }
-        });
+        do {
+            const url = `${NAMI_BLOG_API_BASE_URL}/posts/?key=${NAMI_BLOG_API_KEY}&limit=${perPage}&page=${page}&filter=visibility:public&order=published_at%20desc`;
+            const response = await axios.get(url); // Dùng axios thay vì fetch
+            const data = response.data; // Dữ liệu trực tiếp từ response.data
 
-        const post = response.data.posts[0]; // Lấy bài đăng đầu tiên
+            posts = posts.concat(data.posts);
+            totalPages = data.meta.pagination.pages;
+            page += 1;
+        } while (page <= totalPages);
+        allNamiBlogPosts = posts; // Cập nhật cache
+        return allNamiBlogPosts;
+    } catch (error) {
+        console.error(`Lỗi khi lấy tất cả bài đăng blog Nami:`, error.response?.data || error.message);
+        throw new Error("Không thể lấy dữ liệu blog từ Nami.");
+    }
+}
 
-        if (!post) {
-            return { error: `Không tìm thấy tin tức/bài đăng nào cho loại ${query_type}.` };
+async function get_nami_blog_posts(query_type = 'latest', keyword = '') {
+    console.log(`Lấy tin tức Nami: type=${query_type}, keyword=${keyword}`);
+    try {
+        const allPosts = await fetchAllNamiBlogPosts();
+
+        if (!allPosts || allPosts.length === 0) {
+            return { error: `Không tìm thấy bài đăng blog nào từ Nami.` };
         }
 
-        // Chuyển đổi HTML sang văn bản thuần túy và làm sạch
-        const textContent = convert(post.html, {
-            wordwrap: 130,
-            selectors: [{ selector: 'a', options: { ignoreHref: true } }] // Bỏ qua link trong nội dung
-        });
+        let relevantPosts = [];
 
-        // Tóm tắt nội dung chính (có thể dùng LLM nhỏ để tóm tắt nếu nội dung quá dài)
-        // Hiện tại, chúng ta sẽ chỉ lấy đoạn đầu hoặc custom_excerpt
-        const summary = post.custom_excerpt || textContent.substring(0, 300) + '...';
-
-        let formattedNews = `**Tin tức từ Nami Exchange:**\n\n`;
-        formattedNews += `**Tiêu đề:** ${post.title}\n`;
-        formattedNews += `**Xuất bản vào:** ${new Date(post.published_at).toLocaleDateString('vi-VN')}\n`;
-        formattedNews += `**Tóm tắt:** ${summary}\n`;
-        formattedNews += `**Đọc thêm:** ${post.url}\n\n`;
-
-        // Thêm logic để tìm kiếm chiến dịch/khuyến mãi nếu query_type là 'campaigns'
-        // Đây có thể là một bước phức tạp hơn, có thể cần LLM để tìm kiếm từ khóa trong `textContent`
-        if (query_type === 'campaigns') {
-            const campaignKeywords = ['campaign', 'promo', 'offer', 'ưu đãi', 'khuyến mãi', 'giải đấu'];
-            const foundCampaign = campaignKeywords.some(keyword => textContent.toLowerCase().includes(keyword));
-            if (!foundCampaign) {
-                formattedNews += `Lưu ý: Không tìm thấy thông tin chiến dịch/khuyến mãi rõ ràng trong bài đăng này.\n`;
+        if (query_type === 'latest') {
+            relevantPosts = allPosts.slice(0, 3); // Lấy 3 bài mới nhất
+        } else if (query_type === 'campaigns' || query_type === 'promos') {
+            // Lọc bài đăng có từ khóa liên quan đến chiến dịch/khuyến mãi
+            const campaignKeywords = ['campaign', 'promo', 'offer', 'khuyến mãi', 'ưu đãi', 'giải đấu', 'sự kiện'];
+            relevantPosts = allPosts.filter(post => 
+                campaignKeywords.some(keyword => post.title.toLowerCase().includes(keyword)) ||
+                campaignKeywords.some(keyword => post.custom_excerpt?.toLowerCase().includes(keyword)) ||
+                campaignKeywords.some(keyword => (post.html && convert(post.html, { limits: { maxInputLength: 1000 } }).toLowerCase().includes(keyword))) // Chỉ kiểm tra một phần nhỏ của HTML
+            ).slice(0, 3); // Lấy 3 bài liên quan nhất
+        } else if (query_type === 'trending' || query_type === 'hot_topic' || keyword) {
+            // "Xu hướng" có thể khó định nghĩa từ API đơn thuần.
+            // Có thể là bài đăng gần đây có nhiều tương tác (nếu API hỗ trợ),
+            // hoặc đơn giản là các bài đăng mới nhất hoặc chứa từ khóa.
+            // Ở đây, chúng ta sẽ xem xét các bài gần nhất có từ khóa hoặc là các bài mới nhất.
+            if (keyword) {
+                relevantPosts = allPosts.filter(post => 
+                    post.title.toLowerCase().includes(keyword.toLowerCase()) ||
+                    post.custom_excerpt?.toLowerCase().includes(keyword.toLowerCase()) ||
+                    (post.html && convert(post.html, { limits: { maxInputLength: 1000 } }).toLowerCase().includes(keyword.toLowerCase()))
+                ).slice(0, 3);
             } else {
-                 formattedNews += `Bài đăng này có liên quan đến các chiến dịch/khuyến mãi.\n`;
+                relevantPosts = allPosts.slice(0, 3); // Mặc định là mới nhất nếu không có từ khóa cụ thể
             }
+        } else {
+            relevantPosts = allPosts.slice(0, 1); // Mặc định 1 bài mới nhất nếu không rõ loại
         }
+
+        if (relevantPosts.length === 0) {
+             return { error: `Không tìm thấy tin tức/bài đăng nào phù hợp với yêu cầu của bạn.` };
+        }
+
+        let formattedSummaries = [];
+        for (const post of relevantPosts) {
+            const textContent = convert(post.html, {
+                wordwrap: 130,
+                selectors: [{ selector: 'a', options: { ignoreHref: true } }]
+            });
+            const summary = post.custom_excerpt || textContent.substring(0, 250) + (textContent.length > 250 ? '...' : '');
+
+            formattedSummaries.push({
+                title: post.title,
+                published_at: new Date(post.published_at).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }),
+                summary: summary,
+                url: post.url
+            });
+        }
+
+        let responseText = `Dưới đây là một số bài đăng/tin tức từ Nami Exchange:\n\n`;
+        formattedSummaries.forEach((item, index) => {
+            responseText += `${index + 1}. **${item.title}**\n`;
+            responseText += `   Xuất bản: ${item.published_at}\n`;
+            responseText += `   Tóm tắt: ${item.summary}\n`;
+            responseText += `   [Đọc thêm tại đây](${item.url})\n\n`;
+        });
         
         return {
             source: "Nami Blog",
-            news_summary: formattedNews,
-            full_post_url: post.url,
-            raw_data: post // Giữ raw data để debug
+            summary: responseText,
+            posts: formattedSummaries // Trả về cả mảng chi tiết nếu Gemini cần
         };
 
     } catch (error) {
-        console.error(`Lỗi khi lấy tin tức Nami (type: ${query_type}):`, error.response?.data || error.message);
-        return { error: `Không thể lấy tin tức/blog từ Nami lúc này. Vui lòng thử lại sau.` };
+        console.error(`Lỗi khi lấy tin tức/blog Nami (type: ${query_type}, keyword: ${keyword}):`, error.response?.data || error.message);
+        return { error: `Không thể lấy tin tức/blog từ Nami lúc này. Vui lòng kiểm tra lại cấu hình API hoặc thử lại sau.` };
     }
 }
+get_nami_blog_posts('What is trending on Nami this week?').then(r =>console.log(r));
+
+console.log(allNamiBlogPosts);
