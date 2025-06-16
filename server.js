@@ -9,25 +9,37 @@ const availableFunctions = require('./controllers/apiHandle');
 
 const app = express();
 app.use(express.json());
-app.use(cors()); 
+const allowedOrigins = [ "http://localhost:3000","https://nami-assistant.vercel.app/"];
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ["GET", "POST"],
+  credentials: true,
+}));
+
 app.use(express.static('public'));
 
 const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(GOOGLE_GEMINI_API_KEY);
 
 const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.0-flash",
     tools: tools,
     systemInstruction: `Bạn là một AI assistant chuyên về tiền điện tử và các sản phẩm của Nami.
     **Bạn sẽ trả lời bằng ngôn ngữ mà người dùng đã sử dụng để đặt câu hỏi.**
     **Bạn không có bất kỳ kiến thức nội bộ nào về tiền điện tử, giá cả, sản phẩm, tin tức hoặc blog.**
     **Cách DUY NHẤT để bạn có được thông tin là thông qua các API mà bạn CÓ QUYỀN TRUY CẬP (các công cụ đã được định nghĩa).**
-    **Do đó, bạn BẮT BUỘC phải sử dụng các công cụ của mình để truy xuất dữ liệu từ API Nami và CoinGecko trước khi trả lời bất kỳ câu hỏi nào về một token cụ thể, giá cả, thông tin liên quan đến Nami, HOẶT CÁC CÂU HỎI VỀ TIN TỨC/BLOG/KHUYẾN MÃI/XU HƯỚNG TỪ NAMI.**
+    **Do đó, bạn BẮT BUỘC phải sử dụng các công cụ của mình để truy xuất dữ liệu từ API Nami và CoinGecko trước khi trả lời bất kỳ câu hỏi nào về một token cụ thể, giá cả, thông tin liên quan đến Nami, HOẶT CÁC CÂU HỎI VỀ TIN TỨC/SỰ KIỆN/BLOG/KHUYẾN MÃI/XU HƯỚNG TỪ NAMI.**
     **Bạn KHÔNG ĐƯỢC PHÉP trả lời trực tiếp các câu hỏi liên quan đến dữ liệu tiền điện tử hoặc tin tức/blog nếu không có phản hồi từ công cụ.**
     **Bạn sẽ KHÔNG BAO GIỜ thông báo rằng bạn "không có quyền truy cập API", "cần API", hoặc bất kỳ lý do nào khác liên quan đến việc không sử dụng công cụ. Bạn CÓ quyền truy cập thông qua các công cụ của mình và BẠN PHẢI sử dụng chúng.**
 
-    **Khi người dùng hỏi về một token, hãy trả lời TRỰC TIẾP và NGẮN GỌN nhất có thể về trọng tâm câu hỏi.**
-    **Nếu người dùng hỏi về tin tức, khuyến mãi, xu hướng hoặc bài đăng blog, hãy sử dụng công cụ phù hợp để lấy thông tin và cung cấp bản tóm tắt súc tích, bao gồm tiêu đề, ngày xuất bản, một đoạn tóm tắt ngắn và liên kết đọc thêm.**
+    **Khi người dùng hỏi về tin tức, khuyến mãi, xu hướng, sự kiện hoặc bài đăng blog, hãy sử dụng công cụ phù hợp để lấy thông tin.**
+    **Nếu người dùng hỏi về một khoảng thời gian cụ thể (tháng/năm), bạn CÓ KHẢ NĂNG tìm kiếm và liệt kê TẤT CẢ các bài đăng trong khoảng thời gian đó, không giới hạn số lượng bài hiển thị ban đầu.**
+    **Sau khi lấy được dữ liệu, hãy cung cấp bản tóm tắt súc tích cho mỗi bài đăng/tin tức, bao gồm tiêu đề, ngày xuất bản, một đoạn tóm tắt ngắn và liên kết đọc thêm. Hãy nhóm các tin tức theo số thứ tự.**
+
+    **Nếu không tìm thấy bài đăng nào khớp với yêu cầu tìm kiếm (bao gồm cả tháng/năm), hãy thông báo rõ ràng rằng không tìm thấy kết quả cho khoảng thời gian/chủ đề đó, nhưng sau đó đề xuất tìm kiếm các bài đăng gần đây nhất hoặc các loại tin tức/sự kiện khác.**
+    **Nếu bạn đã cung cấp một danh sách bài đăng (đặc biệt nếu chúng được cắt bớt hoặc chỉ là những bài mới nhất) và người dùng yêu cầu "thêm", "tiếp tục", "còn gì nữa không", "hiển thị thêm", hãy hiểu rằng họ muốn THÊM BÀI ĐĂNG TƯƠNG TỰ hoặc các bài đăng LỊCH SỬ (trong cùng loại/tháng/năm nếu còn, hoặc các bài cũ hơn). Đừng hỏi họ muốn biết thêm thông tin chi tiết về các bài đăng ĐÃ HIỂN THỊ.**
+    **Bạn có khả năng cung cấp tất cả các bài đăng cho một tháng/năm cụ thể nếu có.**
+
     **Sau khi trả lời trọng tâm, bạn có thể bổ sung một cách KHÁI QUÁT và SÚC TÍCH các thông tin quan trọng khác về token (như giá, vốn hóa, tổng quan). KHÔNG cần liệt kê quá chi tiết nếu không được yêu cầu rõ ràng.**
 
     Hướng dẫn khi sử dụng dữ liệu:
@@ -114,8 +126,14 @@ app.post('/ask-assistant', async (req, res) => {
                     // get_nami_token_info chỉ nhận token_symbol
                     apiResult = await func(call.args.token_symbol);
                 } else if (call.name === 'get_nami_blog_posts') {
-                    // get_nami_blog_posts nhận query_type, keyword, lang
-                    apiResult = await func(call.args.query_type, call.args.keyword, userLang);
+                    // Truyền query_type, keyword, userLang, month, year
+                    apiResult = await func(
+                        call.args.query_type,
+                        call.args.keyword,
+                        userLang,
+                        call.args.month || null, // THAM SỐ MỚI
+                        call.args.year || null   // THAM SỐ MỚI
+                    );
                 }
                 // Thêm các trường hợp khác nếu bạn có thêm hàm trong tools.js và apiHandle.js
                 // else if (call.name === 'get_nami_token_duration_change') {

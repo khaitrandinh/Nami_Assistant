@@ -27,7 +27,7 @@ const tools = [
       },
       {
         name: "get_nami_blog_posts",
-        description: "Truy xuất các bài đăng blog, tin tức, thông báo, sự kiện, chiến dịch, khuyến mãi hoặc các cập nhật mới nhất từ blog chính thức của Nami Exchange. Sử dụng hàm này khi người dùng hỏi về xu hướng, các chiến dịch, khuyến mãi, sự kiện, bài đăng blog gần đây, hoặc tin tức mới nhất, niêm yết/hủy niêm yết token.",
+        description: "Truy xuất các bài đăng blog, tin tức, thông báo, sự kiện, chiến dịch, khuyến mãi hoặc các cập nhật từ blog chính thức của Nami Exchange. Sử dụng hàm này khi người dùng hỏi về xu hướng, các chiến dịch, khuyến mãi, sự kiện, bài đăng blog gần đây, tin tức mới nhất, niêm yết/hủy niêm yết token, hoặc các bài đăng trong một khoảng thời gian/tháng cụ thể.",
         parameters: {
           type: "OBJECT",
           properties: {
@@ -40,10 +40,20 @@ const tools = [
                 type: "STRING",
                 description: "Từ khóa liên quan nếu người dùng hỏi về một chủ đề cụ thể trong blog (ví dụ: 'NAO futures', 'DCA auto-invest', 'Defi App', 'vBTC').",
                 nullable: true
+            },
+            month: { // THAM SỐ MỚI
+                type: "integer",
+                description: "Tháng của bài đăng (từ 1 đến 12). Sử dụng khi người dùng hỏi về thông tin trong một tháng cụ thể.",
+                nullable: true
+            },
+            year: { // THAM SỐ MỚI
+                type: "integer",
+                description: "Năm của bài đăng (ví dụ: 2024, 2025). Sử dụng khi người dùng hỏi về thông tin trong một năm cụ thể.",
+                nullable: true
             }
           }
         }
-      },
+      }
     ]
   },
   
