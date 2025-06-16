@@ -29,6 +29,25 @@ const tools = [
       // Hãy đảm bảo mô tả của chúng cũng cực kỳ rõ ràng và ít chồng chéo nếu có thể.
       // Nếu bạn muốn ưu tiên Nami, bạn có thể tạm thời chỉ giữ lại get_nami_token_info để thử nghiệm.
     ]
-  }
+  },
+  {
+        name: "get_nami_blog_posts",
+        description: "Truy xuất các bài đăng blog, tin tức, thông báo, sự kiện, chiến dịch, khuyến mãi hoặc các cập nhật mới nhất từ blog chính thức của Nami Exchange. Sử dụng hàm này khi người dùng hỏi về xu hướng, các chiến dịch, khuyến mãi, sự kiện, bài đăng blog gần đây, hoặc tin tức mới nhất, niêm yết/hủy niêm yết token.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            query_type: {
+              type: "STRING",
+              description: "Loại thông tin blog/tin tức mà người dùng muốn tìm. Có thể là 'latest' (mới nhất), 'events' (sự kiện, giải đấu, chiến dịch, khuyến mãi), 'new_listing' (niêm yết token mới), 'delisting' (hủy niêm yết token), 'trending' (xu hướng/hot topic), hoặc 'news' (tin tức chung). Mặc định là 'latest' nếu không rõ.",
+              enum: ["latest", "events", "new_listing", "delisting", "trending", "news"]
+            },
+            keyword: {
+                type: "STRING",
+                description: "Từ khóa liên quan nếu người dùng hỏi về một chủ đề cụ thể trong blog (ví dụ: 'NAO futures', 'DCA auto-invest', 'Defi App', 'vBTC').",
+                nullable: true
+            }
+          }
+        }
+      },
 ];
 module.exports = tools;
