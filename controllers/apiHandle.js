@@ -342,7 +342,11 @@ async function get_nami_blog_posts(query_type = 'latest', keyword = '', lang = '
         
         let formattedSummaries = [];
         for (const post of filteredPosts) {
-            const finalUrl = post.url; 
+            
+            const tags = post.primary_tag.slug;
+            const result = tags.split("-").slice(2).join("-");
+            
+            const finalUrl = `${webUrl}/${result}/${post.slug}` ;
             const rawSummary = post.custom_excerpt || convert(post.html, {
                 wordwrap: 130,
                 selectors: [{ selector: 'a', options: { ignoreHref: true } }]
