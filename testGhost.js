@@ -44,8 +44,8 @@ async function fetchAllNamiBlogPosts() {
 let webUrl = "https://nami.exchange/support/announcement"
 
 
-async function get_nami_blog_posts(query_type = 'latest', keyword = '', lang = 'vi') {
-    console.log(`Lấy tin tức Nami: type=${query_type}, keyword=${keyword}, lang=${lang}`);
+async function get_nami_blog_posts(query_type = 'latest', keyword = '') {
+    console.log(`Lấy tin tức Nami: type=${query_type}, keyword=${keyword}`);
     try {
         const allPosts = await fetchAllNamiBlogPosts();
 
@@ -53,68 +53,58 @@ async function get_nami_blog_posts(query_type = 'latest', keyword = '', lang = '
             return { error: `Không tìm thấy bài đăng blog nào từ Nami.` };
         }
 
-        // Bước 1: Lọc bài đăng theo ngôn ngữ (chắc chắn khớp nhất)
         let langFilteredPosts = allPosts.filter(post => {
-            const postTags = post.tags || [];
-            const isEnglishPost = postTags.some(tag => tag.slug === 'en') || (post.primary_tag && post.primary_tag.slug.includes('-en-'));
-            const isVietnamesePost = postTags.some(tag => tag.slug === 'vi') || (post.primary_tag && post.primary_tag.slug.includes('-vi-'));
+            const hasEnTag = post.tags.some(tag => tag.slug === 'en');
+            const hasViTag = post.tags.some(tag => tag.slug === 'vi'); // Nếu bạn có tag 'vi'
 
             if (lang === 'en') {
-                return isEnglishPost;
-            } else if (lang === 'vi') {
-                return isVietnamesePost;
+                return hasEnTag || !hasViTag; // Ưu tiên bài có tag 'en', hoặc bài không có tag 'vi' (có thể là tiếng Anh mặc định)
+            } else { // lang === 'vi'
+                return hasViTag || !hasEnTag; // Ưu tiên bài có tag 'vi', hoặc bài không có tag 'en'
             }
-            return true; // Fallback: nếu không có tag ngôn ngữ rõ ràng, giữ lại
         });
 
-        // Fallback: nếu không có bài nào khớp ngôn ngữ trực tiếp, thử các bài không có tag ngôn ngữ cụ thể
         if (langFilteredPosts.length === 0) {
-            langFilteredPosts = allPosts.filter(post => {
-                const postTags = post.tags || [];
-                const hasExplicitLangTag = postTags.some(tag => tag.slug === 'en' || tag.slug === 'vi') || 
-                                           (post.primary_tag && (post.primary_tag.slug.includes('-en-') || post.primary_tag.slug.includes('-vi-')));
-                return !hasExplicitLangTag;
-            });
-            if (langFilteredPosts.length === 0) {
-                langFilteredPosts = allPosts; // Cuối cùng, nếu vẫn không có, lấy tất cả
-            }
+            // Fallback: nếu không tìm thấy bài nào theo ngôn ngữ, trả về bài bất kỳ (ví dụ, bài tiếng Anh nếu hỏi tiếng Anh)
+            langFilteredPosts = allPosts;
         }
-        
+
         let filteredPosts = [];
 
-        // Bước 2: Lọc bài đăng theo query_type/chủ đề dựa trên SLUG TAGS
-        if (query_type === 'latest' || query_type === 'news') {
-            filteredPosts = langFilteredPosts.slice(0, 5); // Lấy 5 bài mới nhất sau khi lọc ngôn ngữ
-        } else if (query_type === 'events') {
-            const eventTagSlugs = ['event', 'events', 'campaign', 'campaigns', 'competition', 'giai-dau', 'su-kien', 'khuyen-mai'];
-            filteredPosts = langFilteredPosts.filter(post => 
-                (post.primary_tag && eventTagSlugs.some(slug => post.primary_tag.slug.includes(slug))) ||
-                (post.tags && post.tags.some(tag => eventTagSlugs.some(slug => tag.slug.includes(slug))))
+        // Logic lọc dựa trên query_type và tiêu đề/tóm tắt/nội dung
+        // Các loại từ ảnh: Tin tức (chung), Sự kiện, Mới niêm yết, Hủy niêm yết
+        if (query_type === 'latest') {
+            // "Tin tức" chung hoặc "Mới nhất" - lấy các bài đăng gần nhất
+            filteredPosts = allPosts.slice(0, 5); // Lấy 5 bài mới nhất
+        } else if (query_type === 'events') { // Từ "Sự kiện"
+            const eventKeywords = ['event', 'events', 'sự kiện', 'competition', 'giải đấu', 'campaign', 'campaigns', 'khuyến mãi', 'promo', 'promos', 'ưu đãi'];
+            filteredPosts = allPosts.filter(post => 
+                eventKeywords.some(kw => post.title.toLowerCase().includes(kw)) ||
+                eventKeywords.some(kw => post.custom_excerpt?.toLowerCase().includes(kw))
             ).slice(0, 3);
-        } else if (query_type === 'new_listing') {
-            const listingTagSlugs = ['new-cryptocurrency-listing', 'token-moi-niem-yet', 'listing', 'niem-yet'];
-            filteredPosts = langFilteredPosts.filter(post => 
-                (post.primary_tag && listingTagSlugs.some(slug => post.primary_tag.slug.includes(slug))) ||
-                (post.tags && post.tags.some(tag => listingTagSlugs.some(slug => tag.slug.includes(slug))))
+        } else if (query_type === 'new_listing') { // Từ "Mới niêm yết"
+            const listingKeywords = ['list', 'listing', 'niêm yết', 'lists', 'new coin', 'mã mới'];
+            filteredPosts = allPosts.filter(post => 
+                listingKeywords.some(kw => post.title.toLowerCase().includes(kw)) ||
+                listingKeywords.some(kw => post.custom_excerpt?.toLowerCase().includes(kw))
             ).slice(0, 3);
-        } else if (query_type === 'delisting') {
-            const delistingTagSlugs = ['delisting', 'huy-niem-yet', 'remove'];
-            filteredPosts = langFilteredPosts.filter(post => 
-                (post.primary_tag && delistingTagSlugs.some(slug => post.primary_tag.slug.includes(slug))) ||
-                (post.tags && post.tags.some(tag => delistingTagSlugs.some(slug => tag.slug.includes(slug))))
+        } else if (query_type === 'delisting') { // Từ "Hủy niêm yết"
+            const delistingKeywords = ['delist', 'delisting', 'hủy niêm yết', 'remove', 'gỡ bỏ'];
+            filteredPosts = allPosts.filter(post => 
+                delistingKeywords.some(kw => post.title.toLowerCase().includes(kw)) ||
+                delistingKeywords.some(kw => post.custom_excerpt?.toLowerCase().includes(kw))
             ).slice(0, 3);
-        } else if (query_type === 'trending' || keyword) {
-            // "Xu hướng" vẫn có thể dựa vào từ khóa hoặc mới nhất.
-            // Nếu có từ khóa, tìm kiếm trong tiêu đề và custom_excerpt
-            filteredPosts = langFilteredPosts.filter(post => 
+        } else if (keyword) {
+            // Nếu có từ khóa, tìm kiếm trong tiêu đề và custom_excerpt của tất cả bài đăng
+            filteredPosts = allPosts.filter(post => 
                 post.title.toLowerCase().includes(keyword.toLowerCase()) ||
                 post.custom_excerpt?.toLowerCase().includes(keyword.toLowerCase()) ||
-                (post.html && convert(post.html, { limits: { maxInputLength: 1000 } }).toLowerCase().includes(keyword.toLowerCase()))
+                (post.html && convert(post.html, { limits: { maxInputLength: 1000 } }).toLowerCase().includes(keyword.toLowerCase())) // Giới hạn đọc HTML để tránh quá tải
             ).slice(0, 3);
         } else {
-            // Fallback cuối cùng nếu không có query_type nào khớp
-            filteredPosts = langFilteredPosts.slice(0, 3);
+            filteredPosts = allPosts.slice(0, 3); // Mặc định là 3 bài mới nhất nếu không rõ loại và không có từ khóa
         }
+
 
         if (filteredPosts.length === 0) {
              return { error: `Không tìm thấy tin tức/bài đăng nào phù hợp với yêu cầu của bạn.` };
@@ -122,23 +112,29 @@ async function get_nami_blog_posts(query_type = 'latest', keyword = '', lang = '
         
         let formattedSummaries = [];
         for (const post of filteredPosts) {
-            const finalUrl = post.url; 
 
-            // Sử dụng custom_excerpt nếu có, nếu không thì tóm tắt từ html
+            const tags = post.primary_tag.slug;
+            const result = tags.split("-").slice(2).join("-");
+            
+            const url = `${webUrl}/${result}/${post.slug}` ;
+            // console.log(url)
+
+            // Lấy tóm tắt tùy chỉnh hoặc tạo từ nội dung HTML
             const rawSummary = post.custom_excerpt || convert(post.html, {
                 wordwrap: 130,
                 selectors: [{ selector: 'a', options: { ignoreHref: true } }]
-            }).substring(0, 250);
+            }).substring(0, 250); // Lấy tối đa 250 ký tự
 
             formattedSummaries.push({
                 title: post.title,
-                published_at: new Date(post.published_at).toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-                summary_text: rawSummary + (rawSummary.length >= 250 ? '...' : ''),
-                url: finalUrl
+                published_at: new Date(post.published_at).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }),
+                summary_text: rawSummary + (rawSummary.length >= 250 ? '...' : ''), // Đảm bảo có dấu ... nếu bị cắt
+                url: url
             });
         }
         
-        // ... (phần tạo responseText và return giữ nguyên) ...
+        
+
         let responseText = (lang === 'vi') ? `Dưới đây là một số cập nhật từ Nami Exchange:\n\n` : `Here are some updates from Nami Exchange:\n\n`;
         formattedSummaries.forEach((item, index) => {
             responseText += `${index + 1}. **${item.title}**\n`;
@@ -154,11 +150,10 @@ async function get_nami_blog_posts(query_type = 'latest', keyword = '', lang = '
         };
 
     } catch (error) {
-        console.error(`Lỗi khi lấy tin tức/blog Nami (type: ${query_type}, keyword: ${keyword}, lang: ${lang}):`, error.response?.data || error.message);
+        console.error(`Lỗi khi lấy tin tức/blog Nami (type: ${query_type}, keyword: ${keyword}):`, error.response?.data || error.message);
         throw { error: `Không thể lấy tin tức/blog từ Nami lúc này. Vui lòng kiểm tra lại cấu hình API hoặc thử lại sau.` };
     }
 }
-
 
 const availableFunctions = {
     get_nami_blog_posts,

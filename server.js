@@ -9,7 +9,7 @@ const availableFunctions = require('./controllers/apiHandle');
 
 const app = express();
 app.use(express.json());
-const allowedOrigins = [ "http://localhost:3000","https://nami-assistant.vercel.app/"];
+const allowedOrigins = [ "http://localhost:3000","https://nami-assistant.vercel.app"];
 app.use(cors({
   origin: allowedOrigins,
   methods: ["GET", "POST"],
