@@ -172,123 +172,276 @@ async function get_nami_token_symbol(assetId) {
 // get_nami_token_symbol(1).then(r=>console.log(r))
 
 
-async function get_user_portfolio_performance(lang = 'vi') {
-    console.log(`Lấy hiệu suất portfolio: lang=${lang}`);
+// async function get_user_portfolio_performance(lang = 'vi') {
+//     console.log(`Lấy hiệu suất portfolio: lang=${lang}`);
+//     try {
+//         if (!process.env.NAMI_USER_AUTH_TOKEN) {
+//             return { error: (lang === 'vi') ? "Không thể truy cập dữ liệu portfolio. Vui lòng cung cấp token xác thực." : "Cannot access portfolio data. Authentication token is missing." };
+//         }
+
+//         const portfolioResponse = await axios.get(`${process.env.NAMI_PORTFOLIO_API_BASE_URL}/api/v3/metric/spot-statistic/portfolio-assets?baseCurrency=39`, {
+//             headers: {
+//                 'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}`
+//             },
+//         });
+//         const portfolioData = portfolioResponse.data.data; 
+
+//         if (!portfolioData || portfolioData.length === 0) {
+//             return { error: (lang === 'vi') ? "Danh mục đầu tư của bạn trống hoặc không có dữ liệu." : "Your portfolio is empty or no data available." };
+//         }
+
+//         let totalPortfolioValue = 0; 
+//         let totalPurchaseCost = 0;
+//         let assetDetails = []; 
+
+//         for (const asset of portfolioData) {
+//             const assetId = asset.assetId; 
+//             const amount = parseFloat(asset.totalAmount);
+//             const avgPrice = parseFloat(asset.avgPrice);
+//             const totalQuoteBuy = parseFloat(asset.totalQuoteBuy);
+//             const totalQuoteSell = parseFloat(asset.totalQuoteSell);
+            
+//             if (amount <= 0 && totalQuoteBuy === 0 && totalQuoteSell === 0) continue; 
+
+//             const symbol_name = await get_nami_token_symbol(assetId);
+//             if (!symbol_name) {
+//                 console.warn(`Không tìm thấy symbol cho assetId ${assetId}. Bỏ qua tài sản này.`);
+//                 continue;
+//             }
+
+//             let currentPrice = 0;
+//             let priceChange24hPercent = 0; 
+            
+//             const quoteCurrency = 'VNST'; 
+//             const marketWatchSymbol = `${symbol_name}${quoteCurrency}`; 
+
+//             if (['VNSTVNST'].includes(marketWatchSymbol.toUpperCase())) {
+//                 currentPrice = 1; 
+//             } else {
+//                 try {
+//                     const marketWatchResponse = await axios.get(`${process.env.NAMI_SPOT_API_MARKET_WATCH}`, {
+//                         params: { symbol: marketWatchSymbol }
+//                     });
+//                     const rawMarketData = marketWatchResponse.data.data;
+//                     const matchedSymbolData = rawMarketData.find(item => item.s === marketWatchSymbol);
+
+//                     if (matchedSymbolData && matchedSymbolData.p) { 
+//                         currentPrice = parseFloat(matchedSymbolData.p);
+//                         priceChange24hPercent = parseFloat(matchedSymbolData.lh || matchedSymbolData.c || 0); 
+//                     }
+//                 } catch (marketWatchError) {
+//                     console.warn(`Lỗi khi lấy giá market_watch cho ${symbol_name}:`, marketWatchError.response?.data || marketWatchError.message);
+//                 }
+//             }
+//             console.log(currentPrice)
+//             const assetCurrentValue = currentPrice * amount;
+//             const pnl = assetCurrentValue + totalQuoteSell - totalQuoteBuy;
+//             const pnlPercent = (totalQuoteBuy > 0) ? (pnl / totalQuoteBuy) * 100 : 0;
+//             console.log(`${symbol_name}current`,assetCurrentValue)
+//             totalPortfolioValue += assetCurrentValue;
+//             totalPurchaseCost += totalQuoteBuy; 
+//             // console.log("totalPortfolioValue", totalPortfolioValue);
+//             // console.log("totalPurchaseCost", totalPurchaseCost);
+//             assetDetails.push({
+//                 symbol: symbol_name,
+//                 amount: amount,
+//                 current_price: currentPrice,
+//                 pnl_value: pnl,
+//                 pnl_percent: pnlPercent,
+//                 price_change_24h_percent: priceChange24hPercent,
+//             });
+//         }
+
+//         let totalCurrentValueForAllocation = 0;
+//         assetDetails.forEach(asset => totalCurrentValueForAllocation += asset.current_price * asset.amount);
+
+//         assetDetails.forEach(asset => {
+//             if (totalCurrentValueForAllocation > 0) {
+//                 asset.allocation_percent = ((asset.current_price * asset.amount) / totalCurrentValueForAllocation) * 100;
+//             } else {
+//                 asset.allocation_percent = 0;
+//             }
+//         });
+
+//         const totalPnL = totalPortfolioValue - totalPurchaseCost;
+//         const totalPnLPercent = (totalPurchaseCost > 0) ? (totalPnL / totalPurchaseCost) * 100 : 0;
+
+//         let responseSummary = (lang === 'vi') ? `**Tổng quan danh mục đầu tư của bạn (tính bằng VNST):**\n\n` : `**Your Portfolio Overview (in VNST):**\n\n`;
+//         responseSummary += (lang === 'vi') ? `- Bạn đang nắm giữ ${assetDetails.length} loại tài sản.\n` : `- You are holding ${assetDetails.length} assets.\n`;
+//         responseSummary += (lang === 'vi') ? `- Tổng giá trị hiện tại: ${totalPortfolioValue.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US', { style: 'currency', currency: 'VND' })}\n` : `- Total current value: ${totalPortfolioValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}\n`;
+//         responseSummary += (lang === 'vi') ? `- Tổng lợi nhuận/thua lỗ (PnL): ${totalPnLPercent.toFixed(2)}% (${totalPnL.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US', { style: 'currency', currency: 'VND' })})\n\n` : `- Total PnL: ${totalPnLPercent.toFixed(2)}% (${totalPnL.toLocaleString('en-US', { style: 'currency', currency: 'USD' })})\n\n`;
+
+//         responseSummary += (lang === 'vi') ? `**Tỷ lệ phân bổ tài sản:**\n` : `**Asset Allocation:**\n`;
+//         assetDetails.sort((a, b) => b.allocation_percent - a.allocation_percent)
+//                     .forEach(asset => {
+//                         responseSummary += `- ${asset.symbol}: ${asset.allocation_percent.toFixed(2)}%\n`;
+//                     });
+//         responseSummary += `\n`;
+
+
+//         responseSummary += (lang === 'vi') ? `**Hiệu suất tài sản chính (24h):**\n` : `**Key Asset Performance (24h):**\n`; 
+//         assetDetails.sort((a, b) => b.pnl_percent - a.pnl_percent) 
+//                     .slice(0, 10) 
+//                     .forEach(asset => {
+//             const emoji = asset.pnl_percent > 0 ? '📈' : (asset.pnl_percent < 0 ? '📉' : '↔️');
+//             responseSummary += `- ${asset.symbol}: ${asset.pnl_percent.toFixed(2)}% ${emoji} (thay đổi 24h: ${asset.price_change_24h_percent.toFixed(2)}%)\n`;
+//         });
+//         responseSummary += `\n`;
+
+//         responseSummary += (lang === 'vi') ? `Lưu ý: Hiệu suất được tính dựa trên dữ liệu 24h gần nhất và giá trị mua/bán từ lịch sử giao dịch. Thông tin về xu hướng giá theo tuần/tháng hiện không khả dụng. Để có thông tin chi tiết hơn, vui lòng kiểm tra Nami Exchange.\n` : `Note: Performance calculated based on latest 24h data and buy/sell values from trade history. Weekly/monthly price trend information is not currently available. For more detailed information, please check Nami Exchange.\n`;
+
+//         return {
+//             source: "Nami Portfolio",
+//             summary: responseSummary,
+//             portfolio_data: {
+//                 total_value: totalPortfolioValue,
+//                 total_pnl_percent: totalPnLPercent,
+//                 assets: assetDetails
+//             }
+//         };
+
+//     } catch (error) {
+//         console.error(`Lỗi khi lấy hiệu suất portfolio:`, error.response?.data || error.message);
+//         if (error.response && error.response.status === 401) {
+//             return { error: (lang === 'vi') ? "Lỗi xác thực: Vui lòng đảm bảo token API người dùng hợp lệ." : "Authentication error: Please ensure valid user API token is provided." };
+//         }
+//         return { error: (lang === 'vi') ? `Không thể lấy dữ liệu portfolio của bạn lúc này. Vui lòng kiểm tra lại token xác thực hoặc thử lại sau.` : `Cannot retrieve your portfolio data at this time. Please check authentication token or try again later.` };
+//     }
+// }
+
+async function get_user_portfolio_performance(lang = 'vi', baseCurrency = 22) {
+    console.log(`Lấy hiệu suất portfolio: lang=${lang}, baseCurrency=${baseCurrency}`);
     try {
         if (!process.env.NAMI_USER_AUTH_TOKEN) {
             return { error: (lang === 'vi') ? "Không thể truy cập dữ liệu portfolio. Vui lòng cung cấp token xác thực." : "Cannot access portfolio data. Authentication token is missing." };
         }
 
-        const portfolioResponse = await axios.get(`${process.env.NAMI_PORTFOLIO_API_BASE_URL}/api/v3/metric/spot-statistic/portfolio-assets?baseCurrency=22`, {
+        const portfolioResponse = await axios.get(`${process.env.NAMI_PORTFOLIO_API_BASE_URL}/api/v3/metric/spot-statistic/portfolio-assets?baseCurrency=${baseCurrency}`, {
             headers: {
                 'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}`
             },
         });
-        const portfolioData = portfolioResponse.data.data; 
-
+        const portfolioData = portfolioResponse.data.data;
         if (!portfolioData || portfolioData.length === 0) {
             return { error: (lang === 'vi') ? "Danh mục đầu tư của bạn trống hoặc không có dữ liệu." : "Your portfolio is empty or no data available." };
         }
 
-        let totalPortfolioValue = 0; 
+        let totalPortfolioValue = 0;
         let totalPurchaseCost = 0;
-        let assetDetails = []; 
+        let assetDetails = [];
+
+        let quoteCurrency = baseCurrency === 22 ? "USDT" : "VNST";
+        // Nếu baseCurrency là USDT, cần lấy giá USDTVNST để quy đổi
+        let usdToVnstRate = 1;
+        if (baseCurrency === 22) {
+            try {
+                const marketWatchResponse = await axios.get(`${process.env.NAMI_SPOT_API_MARKET_WATCH}`, {
+                    params: { symbol: "USDTVNST" }
+                });
+                const dataArr = marketWatchResponse.data.data;
+                const usdVnstData = Array.isArray(dataArr) ? dataArr.find(item => item.s === "USDTVNST") : null;
+                if (usdVnstData && usdVnstData.p) {
+                    usdToVnstRate = parseFloat(usdVnstData.p);
+                }
+            } catch (err) {
+                console.warn("Không thể lấy tỷ giá USDTVNST. Gán mặc định 1.");
+            }
+        }
 
         for (const asset of portfolioData) {
-            const assetId = asset.assetId; 
+            const assetId = asset.assetId;
             const amount = parseFloat(asset.totalAmount);
             const avgPrice = parseFloat(asset.avgPrice);
             const totalQuoteBuy = parseFloat(asset.totalQuoteBuy);
             const totalQuoteSell = parseFloat(asset.totalQuoteSell);
-            
-            if (amount <= 0 && totalQuoteBuy === 0 && totalQuoteSell === 0) continue; 
+
+            if (amount <= 0 && totalQuoteBuy === 0 && totalQuoteSell === 0) continue;
 
             const symbol_name = await get_nami_token_symbol(assetId);
             if (!symbol_name) {
-                console.warn(`Không tìm thấy symbol cho assetId ${assetId}. Bỏ qua tài sản này.`);
+                console.warn(`Không tìm thấy symbol cho assetId ${assetId}.`);
                 continue;
             }
-
+            // console.log(baseCurrency)
+            const quoteCurrency = baseCurrency === 22 ? "USDT" : "VNST";
+            // console.log(quoteCurrency)
+            const marketWatchSymbol = `${symbol_name}${quoteCurrency}`;
             let currentPrice = 0;
-            let priceChange24hPercent = 0; 
-            
-            const quoteCurrency = 'VNST'; 
-            const marketWatchSymbol = `${symbol_name}${quoteCurrency}`; 
+            let priceChange24hPercent = 0;
 
-            if (['VNSTVNST'].includes(marketWatchSymbol.toUpperCase())) {
-                currentPrice = 1; 
+            // Rule 1: Nếu là cặp xxxxxx như VNSTVNST, USDTUSDT
+            if (marketWatchSymbol === "VNSTVNST" || marketWatchSymbol === "USDTUSDT" ) {
+                currentPrice = 1;
+            }
+            // Rule 2: Nếu là VNSTUSDT thì lấy nghịch đảo của USDTVNST
+            else if (marketWatchSymbol === "VNSTUSDT") {
+                currentPrice = 1 / usdToVnstRate;
             } else {
                 try {
                     const marketWatchResponse = await axios.get(`${process.env.NAMI_SPOT_API_MARKET_WATCH}`, {
                         params: { symbol: marketWatchSymbol }
                     });
                     const rawMarketData = marketWatchResponse.data.data;
-                    const matchedSymbolData = rawMarketData.find(item => item.s === marketWatchSymbol);
-
-                    if (matchedSymbolData && matchedSymbolData.p) { 
-                        currentPrice = parseFloat(matchedSymbolData.p);
-                        priceChange24hPercent = parseFloat(matchedSymbolData.lh || matchedSymbolData.c || 0); 
+                    const matched = Array.isArray(rawMarketData) ? rawMarketData.find(i => i.s === marketWatchSymbol) : null;
+                    if (matched && matched.p) {
+                        currentPrice = parseFloat(matched.p);
+                        priceChange24hPercent = parseFloat((currentPrice - (matched.ld || 0))/matched.ld)*100;
                     }
-                } catch (marketWatchError) {
-                    console.warn(`Lỗi khi lấy giá market_watch cho ${symbol_name}:`, marketWatchError.response?.data || marketWatchError.message);
+                } catch (e) {
+                    console.warn(`Không lấy được giá ${marketWatchSymbol}:`, e.message);
                 }
             }
-            console.log(currentPrice)
+
             const assetCurrentValue = currentPrice * amount;
             const pnl = assetCurrentValue + totalQuoteSell - totalQuoteBuy;
             const pnlPercent = (totalQuoteBuy > 0) ? (pnl / totalQuoteBuy) * 100 : 0;
-            console.log(`${symbol_name}current`,assetCurrentValue)
+
             totalPortfolioValue += assetCurrentValue;
-            totalPurchaseCost += totalQuoteBuy; 
-            // console.log("totalPortfolioValue", totalPortfolioValue);
-            // console.log("totalPurchaseCost", totalPurchaseCost);
+            totalPurchaseCost += totalQuoteBuy;
+
             assetDetails.push({
                 symbol: symbol_name,
-                amount: amount,
+                amount,
                 current_price: currentPrice,
                 pnl_value: pnl,
                 pnl_percent: pnlPercent,
-                price_change_24h_percent: priceChange24hPercent,
+                price_change_24h_percent: priceChange24hPercent
             });
         }
 
-        let totalCurrentValueForAllocation = 0;
-        assetDetails.forEach(asset => totalCurrentValueForAllocation += asset.current_price * asset.amount);
-
+        // Tính phân bổ
+        const totalCurrentValueForAllocation = assetDetails.reduce((acc, asset) => acc + (asset.current_price * asset.amount), 0);
         assetDetails.forEach(asset => {
-            if (totalCurrentValueForAllocation > 0) {
-                asset.allocation_percent = ((asset.current_price * asset.amount) / totalCurrentValueForAllocation) * 100;
-            } else {
-                asset.allocation_percent = 0;
-            }
+            asset.allocation_percent = (totalCurrentValueForAllocation > 0)
+                ? (asset.current_price * asset.amount / totalCurrentValueForAllocation) * 100
+                : 0;
         });
 
         const totalPnL = totalPortfolioValue - totalPurchaseCost;
         const totalPnLPercent = (totalPurchaseCost > 0) ? (totalPnL / totalPurchaseCost) * 100 : 0;
 
-        let responseSummary = (lang === 'vi') ? `**Tổng quan danh mục đầu tư của bạn (tính bằng VNST):**\n\n` : `**Your Portfolio Overview (in VNST):**\n\n`;
-        responseSummary += (lang === 'vi') ? `- Bạn đang nắm giữ ${assetDetails.length} loại tài sản.\n` : `- You are holding ${assetDetails.length} assets.\n`;
-        responseSummary += (lang === 'vi') ? `- Tổng giá trị hiện tại: ${totalPortfolioValue.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US', { style: 'currency', currency: 'VND' })}\n` : `- Total current value: ${totalPortfolioValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}\n`;
-        responseSummary += (lang === 'vi') ? `- Tổng lợi nhuận/thua lỗ (PnL): ${totalPnLPercent.toFixed(2)}% (${totalPnL.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US', { style: 'currency', currency: 'VND' })})\n\n` : `- Total PnL: ${totalPnLPercent.toFixed(2)}% (${totalPnL.toLocaleString('en-US', { style: 'currency', currency: 'USD' })})\n\n`;
+        const currencyFormat = baseCurrency === 22 ? { style: 'currency', currency: 'USD' } : { style: 'currency', currency: 'VND' };
+        const locale = (lang === 'vi') ? 'vi-VN' : 'en-US';
 
-        responseSummary += (lang === 'vi') ? `**Tỷ lệ phân bổ tài sản:**\n` : `**Asset Allocation:**\n`;
+        
+
+        // Tạo response
+        let responseSummary = (lang === 'vi') ? `**Tổng quan danh mục đầu tư của bạn (tính bằng ${quoteCurrency}):**\n\n` : `**Your Portfolio Overview (in ${quoteCurrency}):**\n\n`;
+        responseSummary += `- ${(lang === 'vi') ? `Bạn đang nắm giữ` : `Holding`} ${assetDetails.length} ${(lang === 'vi') ? `tài sản` : `assets`}.\n`;
+        responseSummary += `- ${(lang === 'vi') ? `Tổng giá trị hiện tại` : `Total value`}: ${totalPortfolioValue.toLocaleString(locale, currencyFormat)}\n`;
+        responseSummary += `- PnL: ${totalPnLPercent.toFixed(2)}% (${totalPnL.toLocaleString(locale, currencyFormat)})\n\n`;
+
+        responseSummary += (lang === 'vi') ? `**Tỷ lệ phân bổ:**\n` : `**Asset Allocation:**\n`;
         assetDetails.sort((a, b) => b.allocation_percent - a.allocation_percent)
-                    .forEach(asset => {
-                        responseSummary += `- ${asset.symbol}: ${asset.allocation_percent.toFixed(2)}%\n`;
-                    });
-        responseSummary += `\n`;
+            .forEach(asset => {
+                responseSummary += `- ${asset.symbol}: ${asset.allocation_percent.toFixed(2)}%\n`;
+            });
 
-
-        responseSummary += (lang === 'vi') ? `**Hiệu suất tài sản chính (24h):**\n` : `**Key Asset Performance (24h):**\n`; 
-        assetDetails.sort((a, b) => b.pnl_percent - a.pnl_percent) 
-                    .slice(0, 10) 
-                    .forEach(asset => {
-            const emoji = asset.pnl_percent > 0 ? '🚀' : (asset.pnl_percent < 0 ? '📉' : '↔️');
-            responseSummary += `- ${asset.symbol}: ${asset.pnl_percent.toFixed(2)}% ${emoji} (thay đổi 24h: ${asset.price_change_24h_percent.toFixed(2)}%)\n`;
+        responseSummary += `\n${(lang === 'vi') ? `**Hiệu suất 24h:**\n` : `**24h Performance:**\n`}`;
+        assetDetails.sort((a, b) => b.pnl_percent - a.pnl_percent).slice(0, 10).forEach(asset => {
+            const emoji = asset.pnl_percent > 0 ? '📈' : (asset.pnl_percent < 0 ? '📉' : '↔️');
+            responseSummary += `- ${asset.symbol}: ${asset.pnl_percent.toFixed(2)}% ${emoji} (24h: ${asset.price_change_24h_percent.toFixed(2)}%)\n`;
         });
-        responseSummary += `\n`;
-
-        responseSummary += (lang === 'vi') ? `Lưu ý: Hiệu suất được tính dựa trên dữ liệu 24h gần nhất và giá trị mua/bán từ lịch sử giao dịch. Thông tin về xu hướng giá theo tuần/tháng hiện không khả dụng. Để có thông tin chi tiết hơn, vui lòng kiểm tra Nami Exchange.\n` : `Note: Performance calculated based on latest 24h data and buy/sell values from trade history. Weekly/monthly price trend information is not currently available. For more detailed information, please check Nami Exchange.\n`;
 
         return {
             source: "Nami Portfolio",
@@ -303,13 +456,13 @@ async function get_user_portfolio_performance(lang = 'vi') {
     } catch (error) {
         console.error(`Lỗi khi lấy hiệu suất portfolio:`, error.response?.data || error.message);
         if (error.response && error.response.status === 401) {
-            return { error: (lang === 'vi') ? "Lỗi xác thực: Vui lòng đảm bảo token API người dùng hợp lệ." : "Authentication error: Please ensure valid user API token is provided." };
+            return { error: (lang === 'vi') ? "Lỗi xác thực: Token không hợp lệ." : "Authentication error: Invalid token." };
         }
-        return { error: (lang === 'vi') ? `Không thể lấy dữ liệu portfolio của bạn lúc này. Vui lòng kiểm tra lại token xác thực hoặc thử lại sau.` : `Cannot retrieve your portfolio data at this time. Please check authentication token or try again later.` };
+        return { error: (lang === 'vi') ? `Không thể lấy dữ liệu lúc này.` : `Unable to fetch portfolio.` };
     }
 }
 
-get_user_portfolio_performance().then(r=>console.log(r))
+get_user_portfolio_performance(lang='en',baseCurrency=39).then(r=>console.log(r))
 
 
 const availableFunctions = {

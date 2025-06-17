@@ -9,13 +9,8 @@ const availableFunctions = require('./controllers/apiHandle');
 
 const app = express();
 app.use(express.json());
-const allowedOrigins = [ "http://localhost:3000","https://nami-assistant.vercel.app"];
-app.use(cors({
-  origin: allowedOrigins,
-  methods: ["GET", "POST"],
-  credentials: true,
-}));
 
+app.use(cors()); 
 app.use(express.static('public'));
 
 const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
@@ -28,26 +23,31 @@ const model = genAI.getGenerativeModel({
     **Bạn sẽ trả lời bằng ngôn ngữ mà người dùng đã sử dụng để đặt câu hỏi.**
     **Bạn không có bất kỳ kiến thức nội bộ nào về tiền điện tử, giá cả, sản phẩm, tin tức hoặc blog.**
     **Cách DUY NHẤT để bạn có được thông tin là thông qua các API mà bạn CÓ QUYỀN TRUY CẬP (các công cụ đã được định nghĩa).**
-    **Do đó, bạn BẮT BUỘC phải sử dụng các công cụ của mình để truy xuất dữ liệu từ API Nami và CoinGecko trước khi trả lời bất kỳ câu hỏi nào về một token cụ thể, giá cả, thông tin liên quan đến Nami, HOẶT CÁC CÂU HỎI VỀ TIN TỨC/SỰ KIỆN/BLOG/KHUYẾN MÃI/XU HƯỚNG TỪ NAMI.**
+    **Do đó, bạn BẮT BUỘC phải sử dụng các công cụ của mình để truy xuất dữ liệu từ API Nami trước khi trả lời bất kỳ câu hỏi nào về một token cụ thể, giá cả, thông tin liên quan đến Nami, HOẶC CÁC CÂU HỎI VỀ TIN TỨC/BLOG/KHUYẾN MÃI/XU HƯỚNG TỪ NAMI.**
     **Bạn KHÔNG ĐƯỢC PHÉP trả lời trực tiếp các câu hỏi liên quan đến dữ liệu tiền điện tử hoặc tin tức/blog nếu không có phản hồi từ công cụ.**
     **Bạn sẽ KHÔNG BAO GIỜ thông báo rằng bạn "không có quyền truy cập API", "cần API", hoặc bất kỳ lý do nào khác liên quan đến việc không sử dụng công cụ. Bạn CÓ quyền truy cập thông qua các công cụ của mình và BẠN PHẢI sử dụng chúng.**
+   
+    **QUI TẮC BẮT BUỘC VỀ NGÔN NGỮ:**
+    **Bạn PHẢI VÀ CHỈ ĐƯỢC trả lời bằng ngôn ngữ mà người dùng đã sử dụng để đặt câu hỏi.**
+    **Bạn PHẢI TRẢ LỜI THEO NGÔN NGỮ MÀ API TRẢ VỀ CHO BẠN VÀ BẠN KHÔNG ĐƯỢC PHÉP DỊCH LẠI THEO LỊCH SỬ CHAT MÀ PHẢI TUÂN THEO API TRẢ VỀ CHO BẠN.**
+    **Nếu người dùng hỏi bằng tiếng Việt, bạn PHẢI trả lời bằng tiếng Việt.**
+    **Nếu người dùng hỏi bằng tiếng Anh, bạn PHẢI trả lời bằng tiếng Anh.**
+    **Tuyệt đối không trộn lẫn ngôn ngữ**
+    **Tuyệt đối KHÔNG DỊCH LẠI DỮ LIỆU CỦA API TRẢ về.**
 
-    **Khi người dùng hỏi về tin tức, khuyến mãi, xu hướng, sự kiện hoặc bài đăng blog, hãy sử dụng công cụ phù hợp để lấy thông tin.**
-    **Nếu người dùng hỏi về một khoảng thời gian cụ thể (tháng/năm), bạn CÓ KHẢ NĂNG tìm kiếm và liệt kê TẤT CẢ các bài đăng trong khoảng thời gian đó, không giới hạn số lượng bài hiển thị ban đầu.**
-    **Sau khi lấy được dữ liệu, hãy cung cấp bản tóm tắt súc tích cho mỗi bài đăng/tin tức, bao gồm tiêu đề, ngày xuất bản, một đoạn tóm tắt ngắn và liên kết đọc thêm. Hãy nhóm các tin tức theo số thứ tự.**
-
+    **Khi người dùng hỏi về một token, hãy trả lời TRỰC TIẾP và NGẮN GỌT nhất có thể về trọng tâm câu hỏi.**
+    **Nếu người dùng hỏi về tin tức, khuyến mãi, xu hướng hoặc bài đăng blog, hãy sử dụng công cụ phù hợp để lấy thông tin và cung cấp bản tóm tắt súc tích, bao gồm tiêu đề, ngày xuất bản, một đoạn tóm tắt ngắn và liên kết đọc thêm. Hãy nhóm các tin tức theo số thứ tự.**
+    **Nếu người dùng hỏi về hiệu suất portfolio, hãy cung cấp tổng quan portfolio, tỷ lệ phân bổ tài sản, và hiệu suất 24h của các tài sản chính. Lưu ý: Giá trị portfolio sẽ được tính bằng đồng tiền cơ sở mặc định của người dùng (thường là VNST, hoặc USDT nếu được chỉ định bằng ID 22). Thông tin xu hướng giá theo tuần/tháng hiện không khả dụng.**
+    **Nếu người dùng hỏi về một khoảng thời gian cụ thể (tháng/năm cho tin tức), bạn CÓ KHẢ NĂNG tìm kiếm và liệt kê TẤT CẢ các bài đăng trong khoảng thời gian đó, không giới hạn số lượng bài hiển thị ban đầu.**
     **Nếu không tìm thấy bài đăng nào khớp với yêu cầu tìm kiếm (bao gồm cả tháng/năm), hãy thông báo rõ ràng rằng không tìm thấy kết quả cho khoảng thời gian/chủ đề đó, nhưng sau đó đề xuất tìm kiếm các bài đăng gần đây nhất hoặc các loại tin tức/sự kiện khác.**
-    **Nếu bạn đã cung cấp một danh sách bài đăng (đặc biệt nếu chúng được cắt bớt hoặc chỉ là những bài mới nhất) và người dùng yêu cầu "thêm", "tiếp tục", "còn gì nữa không", "hiển thị thêm", hãy hiểu rằng họ muốn THÊM BÀI ĐĂNG TƯƠNG TỰ hoặc các bài đăng LỊCH SỬ (trong cùng loại/tháng/năm nếu còn, hoặc các bài cũ hơn). Đừng hỏi họ muốn biết thêm thông tin chi tiết về các bài đăng ĐÃ HIỂN THỊ.**
-    **Bạn có khả năng cung cấp tất cả các bài đăng cho một tháng/năm cụ thể nếu có.**
-
-    **Sau khi trả lời trọng tâm, bạn có thể bổ sung một cách KHÁI QUÁT và SÚC TÍCH các thông tin quan trọng khác về token (như giá, vốn hóa, tổng quan). KHÔNG cần liệt kê quá chi tiết nếu không được yêu cầu rõ ràng.**
-
+    **Nếu bạn đã cung cấp một danh sách bài đăng và người dùng yêu cầu "thêm", "tiếp tục", "còn gì nữa không", "hiển thị thêm", hãy hiểu rằng họ muốn THÊM BÀI ĐĂNG TƯƠNG TỰ (trong cùng loại/tháng/năm nếu còn, hoặc các bài cũ hơn). Đừng hỏi họ muốn biết thêm thông tin chi tiết về các bài đăng ĐÃ HIỂN THỊ.**
+    
     Hướng dẫn khi sử dụng dữ liệu:
     - Sử dụng các tiêu đề hoặc các điểm gạch đầu dòng (bullet points) để trình bày thông tin rõ ràng và dễ đọc.
     - Đảm bảo câu trả lời của bạn bao gồm:
         - **Thông tin trực tiếp liên quan đến câu hỏi.**
         - **Sau đó là một bản tóm tắt ngắn gọn các khía cạnh chính khác (mục đích, dữ liệu thị trường, tokenomics).**
-        - **Liên kết đến website chính thức nếu có.**
+        - **LUÔN LUÔN BAO GỒM TẤT CẢ CÁC LIÊN KẾT ĐỌC THÊM NẾU CÓ TRONG DỮ LIỆU TỪ CÔNG CỤ. Bạn phải giữ nguyên định dạng liên kết Markdown (ví dụ: [Đọc thêm tại đây](URL)) để chúng có thể nhấp được.**
     - **Tuyệt đối KHÔNG BAO GIỜ đưa ra lời khuyên đầu tư.** Nếu người dùng hỏi về lời khuyên đầu tư (ví dụ: "có nên giữ dài hạn không?", "có phải là khoản đầu tư tốt không?"), hãy từ chối một cách lịch sự và khuyến nghị họ tham khảo ý kiến chuyên gia tài chính.
     `
 });
@@ -61,6 +61,28 @@ app.post('/ask-assistant', async (req, res) => {
         return res.status(400).json({ error: "Missing question" });
     }
 
+    // Phát hiện ngôn ngữ bằng dynamic import
+    let userLang = 'vi'; 
+    const isEnglish = (text) => /[a-z]{3,}/i.test(text); // kiểm tra có >=3 chữ cái tiếng Anh liên tiếp
+
+    try {
+        const { franc } = await import('franc');
+        const langCode = franc(userQuestion, { minLength: 3 });
+
+        if (langCode === 'eng' || isEnglish(userQuestion)) {
+            userLang = 'en';
+        } else if (langCode === 'vie') {
+            userLang = 'vi';
+        } else {
+            userLang = 'vi'; // fallback mặc định
+        }
+
+        console.log(`Detected user language: ${userLang} (from franc: ${langCode || 'N/A'})`);
+    } catch (e) {
+        console.warn('Không thể phát hiện ngôn ngữ, mặc định tiếng Việt:', e.message);
+        userLang = 'vi';
+    }
+
     if (!chat) {
         chat = model.startChat({
             history: [],
@@ -72,20 +94,7 @@ app.post('/ask-assistant', async (req, res) => {
         });
     }
 
-    // PHÁT HIỆN NGÔN NGỮ BẰNG DYNAMIC IMPORT
-    let userLang = 'vi'; // Giá trị mặc định an toàn
-    try {
-        const { franc } = await import('franc'); 
-        const langCode = franc(userQuestion, { minLength: 3 });
-        // Chỉ gán nếu franc trả về một mã ngôn ngữ hợp lệ, nếu không giữ mặc định.
-        if (langCode && (langCode === 'eng' || langCode === 'vie')) {
-            userLang = (langCode === 'eng') ? 'en' : 'vi';
-        }
-        console.log(`Detected user language: ${userLang} (from franc: ${langCode || 'N/A'})`);
-    } catch (e) {
-        console.warn('Không thể phát hiện ngôn ngữ, mặc định tiếng Việt:', e.message);
-        userLang = 'vi'; // Đảm bảo luôn là 'vi' nếu có lỗi franc
-    }
+    
 
     try {
         const result = await chat.sendMessage(userQuestion);
@@ -121,24 +130,15 @@ app.post('/ask-assistant', async (req, res) => {
             } else {
                 console.log("Attempting to call function:", call.name, "with arguments:", call.args);
                 
-                // GỌI HÀM CỤ THỂ DỰA TRÊN TÊN HÀM VÀ TRUYỀN THAM SỐ CHÍNH XÁC
+                // GỌI HÀM CỤ THỂ DỰA TRÊN TÊN HÀM
                 if (call.name === 'get_nami_token_info') {
-                    // get_nami_token_info chỉ nhận token_symbol
-                    apiResult = await func(call.args.token_symbol);
+                    apiResult = await func(call.args.token_symbol, userLang);
                 } else if (call.name === 'get_nami_blog_posts') {
-                    // Truyền query_type, keyword, userLang, month, year
-                    apiResult = await func(
-                        call.args.query_type,
-                        call.args.keyword,
-                        userLang,
-                        call.args.month || null, // THAM SỐ MỚI
-                        call.args.year || null   // THAM SỐ MỚI
-                    );
+                    apiResult = await func(call.args.query_type, call.args.keyword, userLang, call.args.month || null, call.args.year || null);
+                } else if (call.name === 'get_user_portfolio_performance') {
+                    
+                    apiResult = await func(userLang, call.args.name_currency || 'VNST'); 
                 }
-                // Thêm các trường hợp khác nếu bạn có thêm hàm trong tools.js và apiHandle.js
-                // else if (call.name === 'get_nami_token_duration_change') {
-                //     apiResult = await func(call.args.token_symbol, call.args.duration);
-                // }
                 else {
                     const errorMsg = `Function ${call.name} is available but not handled in server logic for argument passing.`;
                     console.error(errorMsg);
@@ -189,7 +189,7 @@ app.post('/ask-assistant', async (req, res) => {
 
     } catch (error) {
         console.error("Lỗi khi xử lý yêu cầu:", error.response ? error.response.data : error.message);
-        chat = undefined; 
+        chat = undefined;
         res.status(500).json({ error: "Đã xảy ra lỗi, vui lòng thử lại sau." });
     }
 });
