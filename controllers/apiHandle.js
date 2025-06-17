@@ -2,13 +2,6 @@
 const axios = require('axios');
 require('dotenv').config();
 const { convert } = require('html-to-text');
-// // Định nghĩa các base URL từ .env
-// const COINGECKO_API_BASE_URL = process.env.COINGECKO_API_BASE_URL; // Ví dụ: https://api.coingecko.com/api/v3
-// const NAMI_CONFIG_API_BASE_URL = process.env.NAMI_CONFIG_API_BASE_URL; // Ví dụ: https://nami.exchange/api/v3
-// const NAMI_SPOT_API_BASE_URL = process.env.NAMI_SPOT_API_BASE_URL; // Ví dụ: https://nami.exchange/api/v3/spot
-
-// Cache để lưu ID CoinGecko và Nami
-// let coingeckoCoinIdMap = {};
 
 
 const NAMI_BLOG_API_BASE_URL = process.env.NAMI_BLOG_API_BASE_URL;
@@ -45,56 +38,6 @@ async function get_nami_asset_id(token_symbol) {
     }
 }
 
-// --- Hàm xử lý get_coingecko_token_details ---
-// async function get_coingecko_token_details(token_symbol) {
-//     const coinId = await get_coingecko_id(token_symbol);
-//     if (!coinId) {
-//         return { error: `Không tìm thấy thông tin cho token ${token_symbol} trên CoinGecko.` };
-//     }
-//     try {
-//         // GET Coingecko: get info token -> /coins/{id}
-//         // Ảnh bạn cung cấp chính là dữ liệu từ endpoint này.
-//         const response = await axios.get(`${COINGECKO_API_BASE_URL}/coins/${coinId}`, {
-//             params: {
-//                 localization: "false",
-//                 tickers: "false",
-//                 market_data: "true",
-//                 community_data: "false",
-//                 developer_data: "false",
-//                 sparkline: "false"
-//             }
-//         });
-//         const data = response.data; // Dữ liệu trực tiếp là object của 1 token, không phải array
-
-//         const description = data.description ? data.description.en : "Không có mô tả.";
-//         // Lấy câu đầu tiên làm use case sơ bộ, loại bỏ HTML tags
-//         const useCase = description.split('.')[0].replace(/<[^>]*>?/gm, '');
-
-//         return {
-//             source: "CoinGecko",
-//             symbol: data.symbol?.toUpperCase(),
-//             name: data.name,
-//             id: data.id,
-//             image_url: data.image?.large,
-//             use_case: useCase,
-//             current_price_usd: data.market_data?.current_price?.usd,
-//             market_cap_usd: data.market_data?.market_cap?.usd,
-//             total_volume_24h_usd: data.market_data?.total_volume?.usd,
-//             price_change_percentage_24h: data.market_data?.price_change_percentage_24h,
-//             tokenomics: {
-//                 circulating_supply: data.market_data?.circulating_supply,
-//                 total_supply: data.market_data?.total_supply,
-//                 max_supply: data.market_data?.max_supply
-//             },
-//             ath_usd: data.market_data?.ath?.usd,
-//             atl_usd: data.market_data?.atl?.usd,
-//             last_updated: data.last_updated
-//         };
-//     } catch (error) {
-//         console.error(`Error fetching CoinGecko details for ${token_symbol}:`, error.message);
-//         return { error: `Lỗi khi lấy thông tin CoinGecko cho ${token_symbol}.` };
-//     }
-// }
 
 // --- Hàm xử lý get_nami_token_info ---
 async function get_nami_token_info(token_symbol) {

@@ -1,182 +1,139 @@
-// server.js
-const express = require('express');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-require('dotenv').config();
-const cors = require('cors');
-
-const tools = require('./tool/tools'); 
-const availableFunctions = require('./controllers/apiHandle'); 
-
-const app = express();
-app.use(express.json());
-
-const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
-const genAI = new GoogleGenerativeAI(GOOGLE_GEMINI_API_KEY);
-
-const allowedOrigins = [ "http://localhost:3000","https://nami-assistant.vercel.app/"];
-app.use(cors({
-  origin: allowedOrigins,
-  methods: ["GET", "POST"],
-  credentials: true,
-}));
-
-const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
-    tools: tools,
-    systemInstruction: `Bạn là một AI assistant chuyên về tiền điện tử và các sản phẩm của Nami.
-    - Bạn sẽ trả lời bằng ngôn ngữ mà người dùng đã sử dụng để đặt câu hỏi.
-    - Bạn không có bất kỳ kiến thức nội bộ nào về tiền điện tử, giá cả hay các sản phẩm liên quan.
-    - Cách duy nhất để bạn có được thông tin là thông qua các API mà bạn có quyền truy cập (các công cụ được định nghĩa).
-    - Do đó, bạn BẮT BUỘC phải sử dụng các công cụ của mình để truy xuất dữ liệu từ API Nami trước khi trả lời bất kỳ câu hỏi nào về một token cụ thể, giá cả, hoặc thông tin liên quan đến Nami.
-    - Bạn không bao giờ được phép trả lời trực tiếp các câu hỏi liên quan đến dữ liệu tiền điện tử mà không có phản hồi từ công cụ.
-    - Bạn sẽ KHÔNG BAO GIỜ thông báo rằng bạn "không có quyền truy cập API" hoặc "cần API". Bạn CÓ quyền truy cập thông qua các công cụ của mình và BẠN PHẢI sử dụng chúng.
-
-    - Khi người dùng hỏi về một token, hãy trả lời TRỰC TIẾP và NGẮN GỌN nhất có thể về trọng tâm câu hỏi.
-    - Sau khi trả lời trọng tâm, bạn có thể bổ sung một cách KHÁI QUÁT và SÚC TÍCH các thông tin quan trọng khác về token (như giá, vốn hóa, tổng quan). KHÔNG cần liệt kê quá chi tiết nếu không được yêu cầu rõ ràng.
-
-    Hướng dẫn khi sử dụng dữ liệu:
-    - Sử dụng các tiêu đề hoặc các điểm gạch đầu dòng (bullet points) để trình bày thông tin rõ ràng và dễ đọc.
-    - Đảm bảo câu trả lời của bạn bao gồm:
-        - Thông tin trực tiếp liên quan đến câu hỏi.
-        - Sau đó là một bản tóm tắt ngắn gọn các khía cạnh chính khác (mục đích, dữ liệu thị trường, tokenomics, các thông tin khác).
-        - Liên kết đến website chính thức nếu có.
-    - Tuyệt đối KHÔNG BAO GIỜ đưa ra lời khuyên đầu tư. Nếu người dùng hỏi về lời khuyên đầu tư (ví dụ: "có nên giữ dài hạn không?", "có phải là khoản đầu tư tốt không?"), hãy từ chối một cách lịch sự và khuyến nghị họ tham khảo ý kiến chuyên gia tài chính.
-    `
-});
-// const model = genAI.getGenerativeModel({
-//         model: "gemini-2.0-flash",
-//         tools: tools,
-//         systemInstruction: `
-//         Bạn là AI assistant chuyên về tiền điện tử và các sản phẩm của Nami.
-//         - Trả lời bằng ngôn ngữ người dùng.
-//         - Bạn không có kiến thức nội bộ, chỉ sử dụng công cụ API được cấp quyền để lấy dữ liệu.
-//         - BẮT BUỘC dùng công cụ để truy xuất dữ liệu trước khi trả lời các câu hỏi về token, giá hoặc thông tin liên quan.
-//         - KHÔNG bao giờ trả lời trực tiếp mà không có dữ liệu công cụ.
-//         - KHÔNG bao giờ nói bạn "không có quyền truy cập API".
-//         - Chỉ trả lời TRỰC TIẾP, NGẮN GỌN, đúng trọng tâm câu hỏi.
-//         - TUYỆT ĐỐI KHÔNG cung cấp thông tin thêm hay mở rộng.
-//         - KHÔNG đưa lời khuyên đầu tư; nếu hỏi, từ chối lịch sự và khuyến nghị hỏi chuyên gia tài chính.
-//         `
-//         });
-// History để duy trì hội thoại
-let chat;
-
-app.post('/ask-assistant', async (req, res) => {
-    const userQuestion = req.body.question;
-
-    if (!userQuestion) {
-        return res.status(400).json({ error: "Missing question" });
-    }
-
-    if (!chat) {
-        chat = model.startChat({
-            history: [], 
-            generationConfig: {
-                temperature: 0.7,
-                topK: 20,
-                topP: 0.9
-            }
-        });
-    }
-
+async function get_user_portfolio_performance(lang = 'vi') {
+    // console.log(`Lấy hiệu suất portfolio: base_currency=${base_currency}, time_period=${time_period}, lang=${lang}`);
     try {
-        const result = await chat.sendMessage(userQuestion);
-        let response = result.response;
-        console.log("Response from Gemini:", JSON.stringify(response, null, 2));
-
-    
-        let hasFunctionCall = false;
-        let functionCallPart = null;
-
-        if (response && response.candidates && response.candidates.length > 0 &&
-            response.candidates[0].content && response.candidates[0].content.parts) {
-            for (const part of response.candidates[0].content.parts) {
-                if (part.functionCall) {
-                    hasFunctionCall = true;
-                    functionCallPart = part;
-                    break; // Tìm thấy functionCall, thoát vòng lặp
-                }
-            }
+        if (!process.env.NAMI_USER_AUTH_TOKEN) {
+            return { error: (lang === 'vi') ? "Không thể truy cập dữ liệu portfolio. Vui lòng cung cấp token xác thực." : "Cannot access portfolio data. Authentication token is missing." };
         }
 
-        while (hasFunctionCall) { // Tiếp tục vòng lặp nếu tìm thấy functionCall
+        // 1. Lấy dữ liệu portfolio từ Nami
+        const portfolioResponse = await axios.get(`${process.env.NAMI_PORTFOLIO_API_BASE_URL}/api/v3/metric/spot-statistic/portfolio-assets?baseCurrency=72`, {
+            headers: {
+                'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}` // Giả định Bearer token
+            },
+            // params: {
+            //     baseCurrency: base_currency,
+            //     page: 1, // Lấy trang đầu tiên, có thể cần phân trang nếu portfolio lớn
+            //     limit: 100 // Tăng giới hạn nếu có nhiều tài sản
+            // }
+        });
+        const portfolioData = portfolioResponse.data.data; // Dữ liệu nằm trong response.data.data
+        // console.log("portfo:",portfolioData)
 
-            const call = functionCallPart.functionCall; // Lấy lời gọi hàm từ part đã tìm thấy
+        if (!portfolioData || portfolioData.length === 0) {
+            return { error: (lang === 'vi') ? "Danh mục đầu tư của bạn trống hoặc không có dữ liệu." : "Your portfolio is empty or no data available." };
+        }
 
-            console.log(`Gemini is asking to call: ${call.name} with args:`, call.args);
+        let totalPortfolioValue = 0; // Tổng giá trị hiện tại của portfolio
+        let totalPurchaseCost = 0;   // Tổng chi phí mua ban đầu
+        let assetDetails = [];       // Chi tiết từng tài sản
 
-            // Gọi hàm thực tế trong Node.js
-            const func = availableFunctions[call.name];
-            if (!func) {
-                const errorMsg = `Function ${call.name} not found.`;
-                console.error(errorMsg);
-                response = await chat.sendMessage([
-                    {
-                        functionResponse: {
-                            name: call.name,
-                            response: { error: errorMsg }
+        // 2. Lặp qua từng tài sản, lấy giá hiện tại và tính toán
+        for (const asset of portfolioData) {
+            const assetId = asset.assetId; 
+            const amount = asset.totalAmount;
+            const avgPrice = asset.avgPrice; // Giá mua trung bình
+            const totalQuoteBuy = asset.totalQuoteBuy;
+            const totalQuoteSell = asset.totalQuoteSell;
+            
+            if (amount <= 0) continue; // Bỏ qua tài sản không nắm giữ
+
+            let currentPrice = 0;
+            let priceChangePercent = 0; // Thay đổi giá % (24h mặc định)
+            const symbol_name = await get_nami_token_symbol(assetId);
+            const marketWatchSymbol = `${symbol_name}${asset.quoteCurrency || 'VNST'}`;
+            // console.log(assetId)
+            if (['VNSTVNST', 'USDTVNST'].includes(marketWatchSymbol)) {
+                // console.log(`Bỏ qua lấy giá cho cặp ${marketWatchSymbol}`);
+                continue;
+            } else {
+                try {
+                    const coinId = assetId; 
+                    if (coinId) {
+                        const priceResponse = await axios.get(`${process.env.NAMI_SPOT_API_MARKET_WATCH}`, {
+                            params: {
+                                symbol: marketWatchSymbol
+                            }
+                        });
+                        // console.log(priceResponse.data)
+                        const rawMarketData = priceResponse.data.data;
+                        const matchedSymbolData = rawMarketData.find(item => item.s === marketWatchSymbol);
+                        // console.log("rawMarketData",matchedSymbolData.p)
+                        if (matchedSymbolData  && matchedSymbolData .p) { 
+                        marketDataFromNami = {
+                            current_price_usd: parseFloat(matchedSymbolData.p),
+                            high_24h_usd: parseFloat(matchedSymbolData.h),
+                            low_24h_usd: parseFloat(matchedSymbolData.l),
+                        };
+                        } else {
+                            console.warn(`Không tìm thấy dữ liệu thị trường hợp lệ (trường 'p') từ market_watch cho ${marketWatchSymbol}.`);
                         }
                     }
-                ]);
-                break; 
-            }
-
-            console.log("Attempting to call function:", call.name, "with arguments:", Object.values(call.args));
-            const apiResult = await func(...Object.values(call.args)); 
-
-            console.log("API response:", apiResult);
-
-            // Gửi kết quả của hàm trở lại cho Gemini
-            const newResponse = await chat.sendMessage([ 
-                {
-                    functionResponse: {
-                        name: call.name,
-                        response: apiResult
-                    }
-                }
-            ]);
-            response = newResponse.response; // Cập nhật response để kiểm tra vòng lặp tiếp theo
-
-            // Sau khi gửi functionResponse, kiểm tra lại response mới xem có functionCall khác không
-            hasFunctionCall = false;
-            functionCallPart = null;
-            if (response && response.candidates && response.candidates.length > 0 &&
-                response.candidates[0].content && response.candidates[0].content.parts) {
-                for (const part of response.candidates[0].content.parts) {
-                    if (part.functionCall) {
-                        hasFunctionCall = true;
-                        functionCallPart = part;
-                        break;
-                    }
+                } catch (priceError) {
+                    console.warn(`Không thể lấy giá hiện tại cho ${symbol_name} từ Nami:`, priceError.message);
+                    // currentPrice sẽ vẫn là 0, ảnh hưởng đến tính toán
                 }
             }
-        }
+            console.log("Giá hiện tại",marketDataFromNami)
+            // const assetCurrentValue = currentPrice * amount;
+            // const assetPurchaseCost = avgPrice * amount;
+            // const pnl = assetCurrentValue - assetPurchaseCost;
+            // const pnlPercent = (assetPurchaseCost > 0) ? (pnl / assetPurchaseCost) * 100 : 0;
+            // console.log(symbol_name,assetId,amount,avgPrice,totalQuoteBuy,totalQuoteSell)
+            
+            const  pnl = (amount * marketDataFromNami.current_price_usd) + totalQuoteSell - totalQuoteBuy ;
+            const pnl_percent = ((pnl/totalQuoteBuy)*100).toFixed(2);
+            // console.log(`PNL của ${symbol_name}`, pnl)
+            // console.log(`PNL percent của ${symbol_name}`, pnl_percent.toFixed(2))
 
-        // Cuối cùng, Gemini sẽ trả lời bằng văn bản
-        let llmAnswer = "Xin lỗi, tôi không thể tạo câu trả lời lúc này.";
-        if (response && typeof response.text === "function") {
-            llmAnswer = response.text();
-            console.log(llmAnswer);
-        } else if (response && response.candidates && response.candidates.length > 0 &&
-                response.candidates[0].content && response.candidates[0].content.parts &&
-                response.candidates[0].content.parts[0].text) {
-            llmAnswer = response.candidates[0].content.parts[0].text;
+            // totalPortfolioValue += assetCurrentValue; //    
+            // totalPurchaseCost += assetPurchaseCost;
+            
+            assetDetails.push({
+                symbol: symbol_name,
+                amount: amount,
+                current_price: marketDataFromNami.current_price_usd,
+                pnl_percent: pnl_percent,
+                // price_change_24h_percent: priceChangePercent
+            });
         }
+        console.log(assetDetails)
+        // // 3. Tính toán tổng PnL cho portfolio
+        // const totalPnL = totalPortfolioValue - totalPurchaseCost;
+        // const totalPnLPercent = (totalPurchaseCost > 0) ? (totalPnL / totalPurchaseCost) * 100 : 0;
 
-        res.json({ answer: llmAnswer });
+        // 4. Tổng hợp thông tin
+        let responseSummary = (lang === 'vi') ? `**Tổng quan danh mục đầu tư của bạn:**\n\n` : `**Your Portfolio Overview:**\n\n`;
+        responseSummary += (lang === 'vi') ? `- Bạn đang nắm giữ ${assetDetails.length} tài sản.\n` : `- You are holding ${assetDetails.length} assets.\n`;
+        responseSummary += (lang === 'vi') ? `- Tổng giá trị hiện tại: ${totalPortfolioValue.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US', { style: 'currency', currency: 'VND' })}\n` : `- Total current value: ${totalPortfolioValue.toLocaleString('en-US', { style: 'currency', currency: 'VND' })}\n`;
+        responseSummary += (lang === 'vi') ? `- Tổng lợi nhuận/thua lỗ (PnL): ${totalPnLPercent.toFixed(2)}% (${totalPnL.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US', { style: 'currency', currency: 'VND' })})\n\n` : `- Total PnL: ${totalPnLPercent.toFixed(2)}% (${totalPnL.toLocaleString('en-US', { style: 'currency', currency: 'VND' })})\n\n`;
+
+        responseSummary += (lang === 'vi') ? `**Hiệu suất tài sản chính (24h):**\n` : `**Key Asset Performance (24h):**\n`;
+        assetDetails.sort((a, b) => b.pnl_percent - a.pnl_percent) // Sắp xếp theo PnL
+                    .slice(0, 5) // Chỉ hiển thị 5 tài sản hàng đầu
+                    .forEach(asset => {
+            const emoji = asset.pnl_percent > 0 ? '🚀' : (asset.pnl_percent < 0 ? '📉' : '↔️');
+            responseSummary += `- ${asset.symbol}: ${asset.pnl_percent.toFixed(2)}% ${emoji} (thay đổi 24h: ${asset.price_change_24h_percent.toFixed(2)}%)\n`;
+        });
+        responseSummary += `\n`;
+
+        responseSummary += (lang === 'vi') ? `Lưu ý: Hiệu suất được tính dựa trên dữ liệu 24h gần nhất. Để có thông tin chi tiết hơn, vui lòng kiểm tra Nami Exchange.\n` : `Note: Performance calculated based on latest 24h data. For more detailed information, please check Nami Exchange.\n`;
+
+        return {
+            source: "Nami Portfolio",
+            summary: responseSummary,
+            portfolio_data: {
+                total_value: totalPortfolioValue,
+                total_pnl_percent: totalPnLPercent,
+                assets: assetDetails
+            }
+        };
 
     } catch (error) {
-        console.error("Error processing request:", error.response ? error.response.data : error.message);
-        chat = undefined;
-        res.status(500).json({ error: "Something went wrong. Please try again." });
+        console.error(`Lỗi khi lấy hiệu suất portfolio:`, error.response?.data || error.message);
+        // Kiểm tra lỗi 401 Unauthorized
+        if (error.response && error.response.status === 401) {
+            return { error: (lang === 'vi') ? "Lỗi xác thực: Vui lòng đảm bảo token API người dùng hợp lệ." : "Authentication error: Please ensure valid user API token is provided." };
+        }
+        return { error: (lang === 'vi') ? `Không thể lấy dữ liệu portfolio của bạn lúc này. Vui lòng kiểm tra lại token xác thực hoặc thử lại sau.` : `Cannot retrieve your portfolio data at this time. Please check authentication token or try again later.` };
     }
-});
-
-
-app.use(express.static('public'));
-
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+}
