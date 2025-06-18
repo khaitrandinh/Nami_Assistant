@@ -379,7 +379,7 @@ async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST'
                 },
             }
         );
-        console.log(portfolioResponse)
+        console.log(portfolioResponse.data)
         const portfolioData = portfolioResponse.data.data;
         if (!portfolioData || portfolioData.length === 0) {
             return {
