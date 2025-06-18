@@ -375,9 +375,7 @@ async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST'
             `${process.env.NAMI_PORTFOLIO_API_BASE_URL}/api/v3/metric/spot-statistic/portfolio-assets?baseCurrency=${baseCurrency}`,
             {
                 headers: {
-                    'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}`,
-                    'Cookie': `nami-game-session=bf47c206a1d8790948c73e745168ac53TQwcdDihB%2FIRxJcaAd7ybTENAXnY9DvGpw2Vhf%2Fp%2FjSgAAPfBSLRQE35qFmnpuWylnQGplRkTCgSy5tSO9q95zK%2Bo6ga8FhmLfWkKdsjtKxwhyoFrSuDQa2PeabB%2Frzx; nami-game-session-values=ceb883ad29fe5f79afb946f3a6226677LwtIDvFTyDp3lmzrMUIKsENie27nSuJcHx79MAXEKmcuMUh%2F6RhvF4ka3H6MHkiqTzbGtjxdqonyGk3NT3UUCA%3D%3D
-`
+                    'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}`
                 },
             }
         );
