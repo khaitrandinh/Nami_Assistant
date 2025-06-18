@@ -380,9 +380,9 @@ async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST'
             }
         );
         const portfolioResponse1 = await axios.get(`${process.env.NAMI_SPOT_API_MARKET_WATCH}`, {
-                        params: { symbol: BTCUSDT }
+                        params: { symbol: BTCVNST }
                     });
-        console.log(portfolioResponse1)
+        console.log(portfolioResponse1.request)
         console.log(portfolioResponse.data)
         const portfolioData = portfolioResponse.data.data;
         if (!portfolioData || portfolioData.length === 0) {
