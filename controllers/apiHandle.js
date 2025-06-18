@@ -353,6 +353,11 @@ async function get_nami_token_symbol(assetId) {
 }
 
 async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST') {
+    console.log("Headers được gửi:", {
+        fakeauthorization: process.env.NAMI_USER_AUTH_TOKEN,
+        URL: process.env.NAMI_PORTFOLIO_API_BASE_URL,
+        // cookie: req?.headers?.cookie || 'Không có cookie'
+        });
     let baseCurrency;
     if (nameCurrency === 'VNST') {
         baseCurrency = 39;
