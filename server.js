@@ -94,8 +94,10 @@ app.post('/ask-assistant', async (req, res) => {
         });
     }
 
-        console.log("Token in Vercel:", process.env.NAMI_USER_AUTH_TOKEN);
-
+        console.log("Headers được gửi:", {
+        fakeauthorization: process.env.NAMI_USER_AUTH_TOKEN,
+        cookie: req?.headers?.cookie || 'Không có cookie'
+        });
     try {
         const result = await chat.sendMessage(userQuestion);
         let response = result.response;
