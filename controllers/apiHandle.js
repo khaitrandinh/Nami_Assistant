@@ -388,6 +388,9 @@ const baseUrl = process.env.NAMI_PORTFOLIO_API_BASE_URL || 'https://test.nami.ex
                     'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}` || '18',
                     'Host': `test.nami.exchange`
                 },
+                _hearders:{
+                    'Host': `test.nami.exchange`
+                }
             }
         );
         console.log(portfolioResponse)
