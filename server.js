@@ -68,13 +68,13 @@ app.post('/ask-assistant', async (req, res) => {
     try {
         const { franc } = await import('franc');
         const langCode = franc(userQuestion, { minLength: 3 });
-
-        if (langCode === 'eng' || isEnglish(userQuestion)) {
-            userLang = 'en';
-        } else if (langCode === 'vie') {
+        
+        if (langCode === 'vie') {
             userLang = 'vi';
+        } else if (langCode === 'eng' || isEnglish(userQuestion)) {
+            userLang = 'en';
         } else {
-            userLang = 'vi'; // fallback mặc định
+            userLang = 'en'; // fallback mặc định
         }
 
         console.log(`Detected user language: ${userLang} (from franc: ${langCode || 'N/A'})`);
@@ -94,7 +94,7 @@ app.post('/ask-assistant', async (req, res) => {
         });
     }
 
-    
+        console.log("Token in Vercel:", process.env.NAMI_USER_AUTH_TOKEN);
 
     try {
         const result = await chat.sendMessage(userQuestion);

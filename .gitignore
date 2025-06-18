@@ -1,7 +1,7 @@
 # === Node modules ===
 node_modules/
 **/node_modules/
-crypto-news-charts/node_modules/
+
 # === Environment files ===
 .env
 **/.env
