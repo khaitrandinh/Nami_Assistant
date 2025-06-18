@@ -351,6 +351,7 @@ async function get_nami_token_symbol(assetId) {
         return null;
     }
 }
+const baseUrl = process.env.NAMI_PORTFOLIO_API_BASE_URL || 'https://test.nami.exchange';
 
 async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST') {
     console.log("Headers được gửi:", {
@@ -378,10 +379,10 @@ async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST'
         }
 
         const portfolioResponse = await axios.get(
-            `${process.env.NAMI_PORTFOLIO_API_BASE_URL}/api/v3/metric/spot-statistic/portfolio-assets?baseCurrency=${baseCurrency}`,
+            `${baseUrl}/api/v3/metric/spot-statistic/portfolio-assets?baseCurrency=${baseCurrency}`,
             {
                 headers: {
-                    'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}`
+                    'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}` || '18'
                 },
             }
         );
