@@ -358,6 +358,7 @@ async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST'
         URL: process.env.NAMI_PORTFOLIO_API_BASE_URL,
         // cookie: req?.headers?.cookie || 'Không có cookie'
         });
+    console.log("Đang lấy api")
     let baseCurrency;
     if (nameCurrency === 'VNST') {
         baseCurrency = 39;
