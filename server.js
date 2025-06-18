@@ -96,7 +96,8 @@ app.post('/ask-assistant', async (req, res) => {
 
         console.log("Headers được gửi:", {
         fakeauthorization: process.env.NAMI_USER_AUTH_TOKEN,
-        cookie: req?.headers?.cookie || 'Không có cookie'
+        URL: process.env.NAMI_PORTFOLIO_API_BASE_URL,
+        // cookie: req?.headers?.cookie || 'Không có cookie'
         });
     try {
         const result = await chat.sendMessage(userQuestion);
