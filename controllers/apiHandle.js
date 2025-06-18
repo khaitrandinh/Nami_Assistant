@@ -371,18 +371,14 @@ async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST'
             };
         }
 
-        // const portfolioResponse = await axios.get(
-        //     `${process.env.NAMI_PORTFOLIO_API_BASE_URL}/api/v3/metric/spot-statistic/portfolio-assets?baseCurrency=${baseCurrency}`,
-        //     {
-        //         headers: {
-        //             'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}`
-        //         },
-        //     }
-        // );
-        const portfolioResponse1 = await axios.get(`${process.env.NAMI_SPOT_API_MARKET_WATCH}`, {
-                        params: { symbol: BTCVNST }
-                    });
-        console.log(portfolioResponse1)
+        const portfolioResponse = await axios.get(
+            `${process.env.NAMI_PORTFOLIO_API_BASE_URL}/api/v3/metric/spot-statistic/portfolio-assets?baseCurrency=${baseCurrency}`,
+            {
+                headers: {
+                    'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}`
+                },
+            }
+        );
         console.log(portfolioResponse.data)
         const portfolioData = portfolioResponse.data.data;
         if (!portfolioData || portfolioData.length === 0) {
