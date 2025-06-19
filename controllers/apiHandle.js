@@ -353,14 +353,6 @@ async function get_nami_token_symbol(assetId) {
 }
 
 async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST') {
-const baseUrl = process.env.NAMI_PORTFOLIO_API_BASE_URL || 'https://test.nami.exchange';
-
-    console.log("Headers được gửi:", {
-        fakeauthorization: process.env.NAMI_USER_AUTH_TOKEN,
-        URL: process.env.NAMI_PORTFOLIO_API_BASE_URL,
-        // cookie: req?.headers?.cookie || 'Không có cookie'
-        });
-    console.log("👉 Base URL used:", baseUrl);
 
     console.log("Đang lấy api")
     let baseCurrency;
@@ -386,10 +378,6 @@ const baseUrl = process.env.NAMI_PORTFOLIO_API_BASE_URL || 'https://test.nami.ex
             {
                 headers: {
                     'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}` || '18',
-                    'Host': `test.nami.exchange`
-                },
-                _hearders:{
-                    'Host': `test.nami.exchange`
                 }
             }
         );
@@ -592,8 +580,7 @@ async function get_nami_notification_setting_internal(lang = 'vi') { // Đổi t
     }
 }
 
-// get_nami_notification_setting_internal('vi').then(r=> console.log(r))
-// Hàm để cập nhật cài đặt thông báo của người dùng
+
 async function update_nami_notification_setting(useDeviceNoti, useEmailNoti, lang = 'vi') {
     console.log(`Cập nhật cài đặt thông báo: useDeviceNoti=${useDeviceNoti}, useEmailNoti=${useEmailNoti}`);
     try {
@@ -754,7 +741,6 @@ async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', pr
         return { error: userFacingError };
     }
 }
-
 
 
 const availableFunctions = {
