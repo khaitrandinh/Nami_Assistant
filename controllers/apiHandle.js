@@ -353,6 +353,16 @@ async function get_nami_token_symbol(assetId) {
 }
 
 async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST') {
+const baseUrl = process.env.NAMI_PORTFOLIO_API_BASE_URL || 'https://test.nami.exchange';
+
+    console.log("Headers được gửi:", {
+        fakeauthorization: process.env.NAMI_USER_AUTH_TOKEN,
+        URL: process.env.NAMI_PORTFOLIO_API_BASE_URL,
+        // cookie: req?.headers?.cookie || 'Không có cookie'
+        });
+    console.log("👉 Base URL used:", baseUrl);
+
+    console.log("Đang lấy api")
     let baseCurrency;
     if (nameCurrency === 'VNST') {
         baseCurrency = 39;
@@ -375,11 +385,15 @@ async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST'
             `${process.env.NAMI_TEST_API_BASE_URL}/api/v3/metric/spot-statistic/portfolio-assets?baseCurrency=${baseCurrency}`,
             {
                 headers: {
-                    'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}`
+                    'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}` || '18',
+                    'Host': `test.nami.exchange`
                 },
+                _hearders:{
+                    'Host': `test.nami.exchange`
+                }
             }
         );
-
+        console.log(portfolioResponse)
         const portfolioData = portfolioResponse.data.data;
         if (!portfolioData || portfolioData.length === 0) {
             return {
