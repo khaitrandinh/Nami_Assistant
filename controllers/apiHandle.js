@@ -619,7 +619,8 @@ async function update_nami_notification_setting(useDeviceNoti, useEmailNoti, lan
 }
 
 
-// MODIFIED: create_nami_alert sẽ tự động kiểm tra và gợi ý
+// Trong apiHandlers.js
+
 async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', product_type='SPOT', value = null, percentage_change = null, interval = null, frequency = 'ONLY_ONCE', lang = 'vi') {
     console.log(`Tạo cảnh báo Nami: type=${alert_type}, assets=${base_assets.join(',')}, quote=${quote_asset}, product=${product_type}, value=${value}, pct_change=${percentage_change}, interval=${interval}, freq=${frequency}, lang=${lang}`);
 
@@ -641,13 +642,17 @@ async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', pr
     const translatedAlertType = translatedAlertTypes[alert_type] ? translatedAlertTypes[alert_type][lang] : alert_type;
 
     let valueDisplay = '';
-    if (alert_type.includes('PRICE')) {
+    // UPDATED: Adjust valueDisplay logic for DAY_CHANGE_IS_OVER/DOWN
+    if (['REACH_PRICE', 'PRICE_RISES_ABOVE', 'PRICE_DROPS_TO'].includes(alert_type)) {
         const currencySymbol = (quote_asset === 'USDT') ? '$' : ((quote_asset === 'VNST') ? ' VNST' : '');
         valueDisplay = `${currencySymbol}${value}`;
-    } else if (alert_type.includes('CHANGE') || alert_type.includes('DURATION')) {
+    } else if (['DAY_CHANGE_IS_OVER', 'DAY_CHANGE_IS_DOWN'].includes(alert_type)) {
+        valueDisplay = `${value}%`; // For DAY_CHANGE, value is the percentage
+    }
+    else if (['CHANGE_IS_OVER', 'CHANGE_IS_UNDER', 'DURATION_CHANGE_IS_OVER', 'DURATION_CHANGE_IS_UNDER', 'DURATION_CHANGE'].includes(alert_type)) {
         valueDisplay = `${percentage_change}%`;
     }
-    if (interval !== null && (alert_type.includes('DURATION'))) {
+    if (interval !== null && (alert_type.includes('DURATION') || alert_type.includes('CHANGE_IS_OVER') || alert_type.includes('CHANGE_IS_UNDER'))) {
         valueDisplay += ` ${(lang === 'vi' ? 'trong' : 'in')} ${interval} ${(lang === 'vi' ? 'giờ' : 'hours')}`;
     }
 
@@ -662,15 +667,66 @@ async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', pr
         lang: lang
     };
 
-    if (value !== null) {
+    // --- Validation Checks (UPDATED) ---
+    if (['REACH_PRICE', 'PRICE_RISES_ABOVE', 'PRICE_DROPS_TO'].includes(alert_type)) {
+        if (value === null || isNaN(parseFloat(value))) {
+            return { error: (lang === 'vi') ? "Vui lòng cung cấp giá trị ngưỡng hợp lệ cho loại cảnh báo giá." : "Please provide a valid threshold value for this price alert type." };
+        }
+        // Ensure percentage_change and interval are null for these types
+        percentage_change = null;
+        interval = null;
+    } else if (['CHANGE_IS_OVER', 'CHANGE_IS_UNDER', 'DURATION_CHANGE_IS_OVER', 'DURATION_CHANGE_IS_UNDER', 'DURATION_CHANGE'].includes(alert_type)) {
+        if (percentage_change === null || isNaN(percentage_change)) {
+            return { error: (lang === 'vi') ? "Vui lòng cung cấp phần trăm biến động hợp lệ cho loại cảnh báo này." : "Please provide a valid percentage change for this alert type." };
+        }
+        // Ensure value is null for these types
+        value = null;
+
+        // Check interval for DURATION_CHANGE types AND CHANGE_IS_OVER/CHANGE_IS_UNDER
+        if (interval === null) {
+            return { error: (lang === 'vi') ? "Vui lòng cung cấp khoảng thời gian (interval) hợp lệ cho loại cảnh báo biến động." : "Please provide a valid interval for this change alert type." };
+        }
+        const validIntervals = ['1', '4', '8', '12', '24'];
+        if (!validIntervals.includes(String(interval))) {
+             return { error: (lang === 'vi') ? "Khoảng thời gian không hợp lệ. Chỉ chấp nhận các giá trị: 1, 4, 8, 12, 24 giờ." : "Invalid interval. Only accepts: 1, 4, 8, 12, 24 hours." };
+        }
+
+    } else if (['DAY_CHANGE_IS_OVER', 'DAY_CHANGE_IS_DOWN'].includes(alert_type)) {
+        if (value === null || isNaN(parseFloat(value))) {
+             return { error: (lang === 'vi') ? "Vui lòng cung cấp giá trị phần trăm biến động hợp lệ cho loại cảnh báo 24h." : "Please provide a valid percentage change value for this 24h alert type." };
+        }
+        // Ensure percentage_change and interval are null for these types
+        percentage_change = null;
+        interval = null; // DAY_CHANGE_IS_OVER/DOWN không có interval
+
+    }
+    // --- END Validation ---
+
+    // --- Cập nhật logic xây dựng Payload dựa trên các giá trị đã được validate/điều chỉnh ---
+    if (['REACH_PRICE', 'PRICE_RISES_ABOVE', 'PRICE_DROPS_TO'].includes(alert_type)) {
         payload.value = String(value);
+        payload.percentage_change = null; // Explicitly set to null for API
+    } else if (['CHANGE_IS_OVER', 'CHANGE_IS_UNDER', 'DURATION_CHANGE_IS_OVER', 'DURATION_CHANGE_IS_UNDER', 'DURATION_CHANGE'].includes(alert_type)) {
+        // Convert percentage_change to decimal if it's an integer
+        if (percentage_change !== null && percentage_change > 1) {
+            payload.percentage_change = percentage_change / 100;
+        } else {
+            payload.percentage_change = percentage_change;
+        }
+        payload.value = null; // Explicitly set to null for API
+        payload.interval = interval; // Set interval as it's required for these types
+    } else if (['DAY_CHANGE_IS_OVER', 'DAY_CHANGE_IS_DOWN'].includes(alert_type)) {
+        // value is the percentage, convert to decimal if it's an integer
+        if (value !== null && parseFloat(value) > 1) {
+            payload.value = String(parseFloat(value) / 100);
+        } else {
+            payload.value = String(value);
+        }
+        payload.percentage_change = null; // Explicitly set to null for API
+        payload.interval = null; // Explicitly set to null for API
     }
-    if (percentage_change !== null) {
-        payload.percentage_change = percentage_change;
-    }
-    if (interval !== null) {
-        payload.interval = interval;
-    }
+    // --- Kết thúc cập nhật logic xây dựng Payload ---
+
 
     try {
         const response = await axios.post(`${process.env.NAMI_TEST_API_BASE_URL}/api/v3/alert_price`, payload, {
@@ -684,14 +740,11 @@ async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', pr
                 `Cảnh báo **"${base_assets.join(', ')}/${quote_asset} ${translatedAlertType} ${valueDisplay}"** đã được cài đặt thành công! Hệ thống sẽ thông báo đến bạn.\n` :
                 `Alert **"${base_assets.join(', ')}/${quote_asset} to ${translatedAlertType} ${valueDisplay}"** successfully set! You will be notified.\n`;
 
-            // NEW: Kiểm tra cài đặt thông báo sau khi tạo cảnh báo thành công
             const notificationSetting = await get_nami_notification_setting_internal(lang);
-            // console.log(notificationSetting)
             if (notificationSetting.success) {
                 const deviceNotiStatus = notificationSetting.useDeviceNoti;
-                const emailNotiStatus = notificationSetting.emailNoti.includes("@")? true :false;
-                
-                // console.log("emailNotiStatus",deviceNotiStatus)
+                const emailNotiStatus = notificationSetting.emailNoti && notificationSetting.emailNoti.includes("@") ? true : false;
+
                 let settingMessage = (lang === 'vi') ?
                     `\nCài đặt thông báo hiện tại của bạn là:\n - Thông báo trên thiết bị **${deviceNotiStatus ? 'ĐANG BẬT' : 'ĐANG TẮT'}**, Thông báo Email **${emailNotiStatus ? 'ĐANG BẬT' : 'ĐANG TẮT'}**.\n` :
                     `\nYour current notification settings are:\n - Device notifications are **${deviceNotiStatus ? 'ENABLED' : 'DISABLED'}**, Email notifications are **${emailNotiStatus ? 'ENABLED' : 'DISABLED'}**.\n`;
@@ -708,7 +761,7 @@ async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', pr
                 return {
                     success: true,
                     message: `${initialMessage}${settingMessage}`,
-                    ask_to_enable_notifications: (!deviceNotiStatus || !emailNotiStatus) // Cờ để Gemini biết gợi ý bật
+                    ask_to_enable_notifications: (!deviceNotiStatus || !emailNotiStatus)
                 };
             } else {
                 console.warn("Không thể kiểm tra cài đặt thông báo sau khi tạo cảnh báo:", notificationSetting.error);
@@ -718,25 +771,40 @@ async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', pr
                 };
             }
         } else {
-            const errorMessageKey = response.data.error;
+            console.error("Nami API returned OK status but not 'ok' status field. Full response data:", response.data);
+            const apiErrorData = response.data;
             let errorMessage = (lang === 'vi') ? "Đã xảy ra lỗi khi tạo cảnh báo." : "An error occurred while creating the alert.";
-            switch(errorMessageKey) {
-                case 'INVALID_MAX_ALERT': errorMessage = (lang === 'vi') ? "Bạn đã đạt giới hạn 50 cảnh báo." : "You have reached the maximum of 50 alerts."; break;
-                case 'INVALID_MAX_ALERT_PER_PAIR': errorMessage = (lang === 'vi') ? "Bạn đã đạt giới hạn 10 cảnh báo cho cặp này." : "You have reached the maximum of 10 alerts for this pair."; break;
-                case 'BODY_MISSING': errorMessage = (lang === 'vi') ? "Thiếu thông tin cần thiết để tạo cảnh báo." : "Missing required information to create alert."; break;
-                case 'INVALID_PRICE': errorMessage = (lang === 'vi') ? "Giá trị ngưỡng không hợp lệ." : "Invalid threshold value."; break;
-                case 'INVALID_INTERVAL': errorMessage = (lang === 'vi') ? "Khoảng thời gian không hợp lệ. Chỉ chấp nhận các giá trị: 1, 4, 8, 12, 24 giờ." : "Invalid interval. Only accepts: 1, 4, 8, 12, 24 hours."; break;
-                default: errorMessage += ` (${errorMessageKey})`;
+
+            if (apiErrorData && typeof apiErrorData.message === 'string') {
+                errorMessage = (lang === 'vi') ? `Lỗi: ${apiErrorData.message}` : `Error: ${apiErrorData.message}`;
+            } else if (apiErrorData && typeof apiErrorData.error === 'string') {
+                switch(apiErrorData.error) {
+                    case 'INVALID_MAX_ALERT': errorMessage = (lang === 'vi') ? "Bạn đã đạt giới hạn 50 cảnh báo." : "You have reached the maximum of 50 alerts."; break;
+                    case 'INVALID_MAX_ALERT_PER_PAIR': errorMessage = (lang === 'vi') ? "Bạn đã đạt giới hạn 10 cảnh báo cho cặp này." : "You have reached the maximum of 10 alerts for this pair."; break;
+                    case 'BODY_MISSING': errorMessage = (lang === 'vi') ? "Thiếu thông tin cần thiết để tạo cảnh báo." : "Missing required information to create alert."; break;
+                    case 'INVALID_PRICE': errorMessage = (lang === 'vi') ? "Giá trị ngưỡng không hợp lệ." : "Invalid threshold value."; break;
+                    case 'INVALID_INTERVAL': errorMessage = (lang === 'vi') ? "Khoảng thời gian không hợp lệ. Chỉ chấp nhận các giá trị: 1, 4, 8, 12, 24 giờ." : "Invalid interval. Only accepts: 1, 4, 8, 12, 24 hours."; break;
+                    default: errorMessage += ` (${apiErrorData.error})`;
+                }
+            } else {
+                 errorMessage += (lang === 'vi') ? " (phản hồi không xác định)." : " (unknown response).";
             }
             return { error: errorMessage };
         }
 
     } catch (error) {
         console.error(`Lỗi khi gọi API tạo cảnh báo:`, error.response?.data || error.message);
-        const apiError = error.response?.data;
+        const apiErrorData = error.response?.data;
         let userFacingError = (lang === 'vi') ? `Không thể tạo cảnh báo lúc này. Vui lòng thử lại sau.` : `Unable to create alert at this time. Please try again later.`;
-        if (apiError && apiError.message && typeof apiError.message === 'string') {
-            userFacingError = (lang === 'vi') ? `Lỗi: ${apiError.message}` : `Error: ${apiError.message}`;
+
+        if (apiErrorData && typeof apiErrorData.message === 'string') {
+            userFacingError = (lang === 'vi') ? `Lỗi API: ${apiErrorData.message}` : `API Error: ${apiErrorData.message}`;
+        } else if (error.response && error.response.status === 401) {
+            userFacingError = (lang === 'vi') ? "Lỗi xác thực: Token không hợp lệ. Vui lòng kiểm tra lại token của bạn." : "Authentication error: Invalid token. Please check your token.";
+        } else if (error.response) {
+            userFacingError = (lang === 'vi') ? `Lỗi API ${error.response.status}: ${JSON.stringify(apiErrorData)}` : `API Error ${error.response.status}: ${JSON.stringify(apiErrorData)}`;
+        } else {
+            userFacingError = (lang === 'vi') ? `Lỗi kết nối hoặc không xác định: ${error.message}` : `Connection or unknown error: ${error.message}`;
         }
         return { error: userFacingError };
     }

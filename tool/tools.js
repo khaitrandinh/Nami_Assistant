@@ -70,60 +70,58 @@ const tools = [
           }
         }
       },
-      { // MỚI: create_nami_alert - CẬP NHẬT THEO CONFIG CỦA NAMI
+      {
         name: "create_nami_alert",
-        description: "Tạo một cảnh báo (alert) giá hoặc biến động trên Nami Exchange và đăng ký vào hệ thống thông báo. Bạn có thể đặt cảnh báo khi giá đạt ngưỡng, tăng/giảm một lượng nhất định, hoặc thay đổi phần trăm trong một khoảng thời gian. **Bạn PHẢI sử dụng hàm này khi người dùng muốn 'thông báo', 'nhắc nhở', 'cảnh báo', 'báo cho tôi biết' về giá hoặc biến động của token.**",
+        description: "Tạo một cảnh báo (alert) giá hoặc biến động trên Nami Exchange và đăng ký vào hệ thống thông báo. Bạn có thể đặt cảnh báo khi giá đạt ngưỡng, tăng/giảm một lượng nhất định, hoặc thay đổi phần trăm trong một khoảng thời gian. **Bạn PHẢI sử dụng hàm này khi người dùng muốn 'thông báo', 'nhắc nhở', 'cảnh báo', 'báo cho tôi biết' về giá hoặc biến động của token.** Sau khi tạo cảnh báo, hàm này sẽ tự động kiểm tra cài đặt thông báo của người dùng và sẽ đưa ra gợi ý bật thông báo nếu chúng đang tắt. Nếu công cụ trả về cờ `ask_to_enable_notifications: true`, bạn PHẢI hỏi người dùng \"Bạn có muốn tôi bật cả thông báo trên thiết bị và qua email không?\". Nếu người dùng đồng ý bật, hãy sử dụng công cụ `update_nami_notification_setting` để bật các cài đặt đó.",
         parameters: {
           type: "OBJECT",
           properties: {
-            alert_type: { // Loại cảnh báo (từ config AlertType)
+            alert_type: {
               type: "STRING",
-              description: "Loại cảnh báo cần tạo. Ví dụ: 'PRICE_DROPS_TO' (giá giảm xuống dưới), 'PRICE_RISES_ABOVE' (giá tăng lên trên), 'REACH_PRICE' (giá đạt đến), 'DAY_CHANGE_IS_OVER' (biến động 24h tăng trên), 'DAY_CHANGE_IS_DOWN' (biến động 24h giảm xuống), 'DURATION_CHANGE_IS_OVER' (biến động trong X giờ tăng trên), 'DURATION_CHANGE_IS_UNDER' (biến động trong X giờ giảm xuống), 'DURATION_CHANGE' (biến động trong X giờ tăng hoặc giảm).",
+              description: "Loại cảnh báo cần tạo. Ví dụ: 'REACH_PRICE' (giá đạt đến), 'PRICE_RISES_ABOVE' (giá tăng lên trên), 'PRICE_DROPS_TO' (giá giảm xuống dưới), 'CHANGE_IS_OVER' (giá tăng trên một ngưỡng), 'CHANGE_IS_UNDER' (giá giảm dưới một ngưỡng), 'DAY_CHANGE_IS_OVER' (biến động 24h tăng trên), 'DAY_CHANGE_IS_DOWN' (biến động 24h giảm xuống), 'DURATION_CHANGE_IS_OVER' (biến động trong X giờ tăng trên), 'DURATION_CHANGE_IS_UNDER' (biến động trong X giờ giảm xuống), 'DURATION_CHANGE' (biến động trong X giờ tăng hoặc giảm).",
               enum: ["REACH_PRICE", "PRICE_RISES_ABOVE", "PRICE_DROPS_TO", "CHANGE_IS_OVER", "CHANGE_IS_UNDER", "DAY_CHANGE_IS_OVER", "DAY_CHANGE_IS_DOWN", "DURATION_CHANGE_IS_OVER", "DURATION_CHANGE_IS_UNDER", "DURATION_CHANGE"]
             },
-            base_assets: { // Hỗ trợ 1 hoặc nhiều tài sản
+            base_assets: {
               type: "array",
               items: { type: "STRING" },
               description: "Một hoặc nhiều mã ký hiệu của tài sản tiền điện tử chính (ví dụ: ['BTC'], ['ETH', 'USDT'])."
             },
-            quote_asset: { // Đồng tiền báo giá
+            quote_asset: {
               type: "STRING",
               description: "Đồng tiền báo giá của cặp giao dịch (ví dụ: 'USDT', 'VNST'). Mặc định là 'USDT' nếu không đề cập.",
               enum: ["USDT", "VNST"],
               default: "USDT"
             },
-            product_type: { // Loại sản phẩm
+            product_type: {
               type: "STRING",
               description: "Loại sản phẩm áp dụng cảnh báo (ví dụ: 'SPOT', 'NAMI_FUTURES', 'NAO_FUTURES'). Mặc định là 'SPOT' nếu không rõ.",
-              enum: ["NAMI_FUTURES", "SPOT", "NAO_FUTURES"], // Thứ tự từ config
+              enum: ["NAMI_FUTURES", "SPOT", "NAO_FUTURES"],
               default: "SPOT"
             },
-            value: { // Ngưỡng giá hoặc % (dạng chuỗi)
-              type: "string", // API mong đợi string
+            value: {
+              type: "string",
               description: "Giá trị ngưỡng để kích hoạt cảnh báo. Bắt buộc cho các loại cảnh báo giá (REACH_PRICE, PRICE_RISES_ABOVE, PRICE_DROPS_TO). Ví dụ: '90000' hoặc '0.05'. KHÔNG bắt buộc cho các loại percentage_change.",
               nullable: true
             },
-            percentage_change: { // Phần trăm biến động (dạng số)
+            percentage_change: {
               type: "number",
               description: "Phần trăm biến động (dạng số nguyên, ví dụ: 5 cho 5%). Bắt buộc cho CHANGE_IS_OVER, CHANGE_IS_UNDER, DURATION_CHANGE_IS_OVER, DURATION_CHANGE_IS_UNDER, DURATION_CHANGE. KHÔNG sử dụng cho cảnh báo giá cố định.",
               nullable: true
             },
-            interval: { // Khoảng thời gian (dạng số nguyên giờ)
+             interval: {
               type: "STRING",
-              description: "Khoảng thời gian (tính bằng giờ, ví dụ: 1, 4, 8, 12, 24) cho các loại cảnh báo DURATION_CHANGE. Bắt buộc cho DURATION_CHANGE_IS_OVER, DURATION_CHANGE_IS_UNDER, DURATION_CHANGE.",
-              enum: ["1", "4", "8", "12", "24"], // Giá trị từ config INTERVAL
+              description: "Khoảng thời gian (tính bằng giờ, ví dụ: 1, 4, 8, 12, 24) cho các loại cảnh báo DURATION_CHANGE, CHANGE_IS_OVER, CHANGE_IS_UNDER. Bắt buộc cho DURATION_CHANGE_IS_OVER, DURATION_CHANGE_IS_UNDER, DURATION_CHANGE, CHANGE_IS_OVER, CHANGE_IS_UNDER.",
+              enum: ["1", "4", "8", "12", "24"],
               nullable: true
             },
-            frequency: { // Tần suất cảnh báo
+            frequency: {
               type: "STRING",
               description: "Tần suất cảnh báo sẽ được gửi: 'ONLY_ONCE' (chỉ 1 lần), 'ONCE_A_DAY' (1 lần/ngày), 'ALWAYS' (luôn luôn khi điều kiện đúng). Mặc định là 'ONLY_ONCE'.",
-              enum: ["ALWAYS", "ONLY_ONCE", "ONCE_A_DAY"], // Thứ tự từ config
+              enum: ["ALWAYS", "ONLY_ONCE", "ONCE_A_DAY"],
               default: "ONLY_ONCE"
             }
           },
-          // QUY TẮC BẮT BUỘC: base_assets, quote_asset, product_type, alert_type luôn bắt buộc.
-          // Các trường khác bắt buộc tùy theo alert_type. Gemini sẽ tự suy luận các tham số cần thiết.
-          required: ["alert_type", "base_assets", "quote_asset", "product_type"] 
+          required: ["alert_type", "base_assets", "quote_asset", "product_type"]
         }
       },
       {
