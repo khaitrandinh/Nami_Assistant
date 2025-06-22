@@ -159,7 +159,7 @@ async function fetchAllNamiBlogPosts() {
 
     try {
         do {
-            const url = `${NAMI_BLOG_API_BASE_URL}/posts/?key=${NAMI_BLOG_API_KEY}&limit=${perPage}&page=${page}&include=tags&filter=visibility:public&order=published_at%20desc`;
+            const url = `${NAMI_BLOG_API_BASE_URL}/posts/?key=${NAMI_BLOG_API_KEY}&limit=${perPage}&page=${page}&include=tags&order=published_at%20desc&filter=tags:[noti-vi-su-kien, noti-en-events,noti-en-nami-news,noti-vi-tin-tuc-ve-nami,noti-vi-token-moi-niem-yet,noti-vi-huy-niem-yet,noti-en-new-cryptocurrency-listing,noti-en-delisting]`;
             const response = await axios.get(url); // Dùng axios thay vì fetch
             const data = response.data; // Dữ liệu trực tiếp từ response.data
 
@@ -619,8 +619,6 @@ async function update_nami_notification_setting(useDeviceNoti, useEmailNoti, lan
 }
 
 
-// Trong apiHandlers.js
-
 async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', product_type='SPOT', value = null, percentage_change = null, interval = null, frequency = 'ONLY_ONCE', lang = 'vi') {
     console.log(`Tạo cảnh báo Nami: type=${alert_type}, assets=${base_assets.join(',')}, quote=${quote_asset}, product=${product_type}, value=${value}, pct_change=${percentage_change}, interval=${interval}, freq=${frequency}, lang=${lang}`);
 
@@ -809,6 +807,41 @@ async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', pr
         return { error: userFacingError };
     }
 }
+
+let allNamiFAQ = []; // Cache để lưu tất cả bài đăng blog
+
+// --- Hàm nội bộ để lấy tất cả bài đăng blog từ Nami ---
+// Dựa vào hàm fetchAllPosts bạn cung cấp, sử dụng axios
+async function fetchAllNamiFAQ() {
+    if (allNamiBlogPosts.length > 0) {
+        // Trả về cache nếu đã có dữ liệu và không quá cũ (có thể thêm logic TTL)
+        // Ví dụ, không fetch lại trong X phút
+        // return allNamiBlogPosts;
+    }
+
+    const perPage = 100; // max per request for Ghost API
+    let page = 1;
+    let posts = [];
+    let totalPages = 1;
+
+    try {
+        do {
+            const url = `${NAMI_BLOG_API_BASE_URL}/posts/?key=${NAMI_BLOG_API_KEY}&limit=${perPage}&page=${page}&include=tags&order=published_at%20desc&filter=tags:[faq]`;
+            const response = await axios.get(url); // Dùng axios thay vì fetch
+            const data = response.data; // Dữ liệu trực tiếp từ response.data
+
+            posts = posts.concat(data.posts);
+            totalPages = data.meta.pagination.pages;
+            page += 1;
+        } while (page <= totalPages);
+        allNamiFAQ = posts; // Cập nhật cache
+        return allNamiFAQ;
+    } catch (error) {
+        console.error(`Lỗi khi lấy tất cả bài đăng blog Nami:`, error.response?.data || error.message);
+        throw new Error("Không thể lấy dữ liệu blog từ Nami.");
+    }
+}
+fetchAllNamiFAQ().then(r=>console.log(r.length))
 
 
 const availableFunctions = {
