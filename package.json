@@ -15,10 +15,12 @@
     "@google/genai": "^1.4.0",
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.9.0",
+    "cheerio": "^1.1.0",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "franc": "^6.2.0",
     "html-to-text": "^9.0.5",
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "redis": "^5.5.6"
   }
 }

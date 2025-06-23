@@ -2,7 +2,7 @@
 const axios = require('axios');
 require('dotenv').config();
 const { convert } = require('html-to-text');
-
+const cheerio = require('cheerio');
 
 const NAMI_BLOG_API_BASE_URL = process.env.NAMI_BLOG_API_BASE_URL;
 const NAMI_BLOG_API_KEY = process.env.NAMI_BLOG_API_KEY; 
@@ -142,38 +142,44 @@ async function get_nami_token_info(token_symbol) {
 
 
 let allNamiBlogPosts = []; // Cache để lưu tất cả bài đăng blog
+let lastFetchedAt = null;
+const CACHE_TTL_MS = 5 * 60 * 1000; // TTL: 5 phút
 
-// --- Hàm nội bộ để lấy tất cả bài đăng blog từ Nami ---
-// Dựa vào hàm fetchAllPosts bạn cung cấp, sử dụng axios
 async function fetchAllNamiBlogPosts() {
-    if (allNamiBlogPosts.length > 0) {
-        // Trả về cache nếu đã có dữ liệu và không quá cũ (có thể thêm logic TTL)
-        // Ví dụ, không fetch lại trong X phút
-        // return allNamiBlogPosts;
+    const now = Date.now();
+    
+    // Kiểm tra cache còn hợp lệ không
+    if (allNamiBlogPosts.length > 0 && lastFetchedAt && (now - lastFetchedAt < CACHE_TTL_MS)) {
+        return allNamiBlogPosts;
     }
 
-    const perPage = 100; // max per request for Ghost API
+    const perPage = 100;
     let page = 1;
     let posts = [];
     let totalPages = 1;
 
     try {
         do {
-            const url = `${NAMI_BLOG_API_BASE_URL}/posts/?key=${NAMI_BLOG_API_KEY}&limit=${perPage}&page=${page}&include=tags&filter=visibility:public&order=published_at%20desc`;
-            const response = await axios.get(url); // Dùng axios thay vì fetch
-            const data = response.data; // Dữ liệu trực tiếp từ response.data
+            const url = `${NAMI_BLOG_API_BASE_URL}/posts/?key=${NAMI_BLOG_API_KEY}&limit=${perPage}&page=${page}&include=tags&order=published_at%20desc&filter=tags:[noti-vi-su-kien,noti-en-events,noti-en-nami-news,noti-vi-tin-tuc-ve-nami,noti-vi-token-moi-niem-yet,noti-vi-huy-niem-yet,noti-en-new-cryptocurrency-listing,noti-en-delisting]`;
+            const response = await axios.get(url);
+            const data = response.data;
 
             posts = posts.concat(data.posts);
             totalPages = data.meta.pagination.pages;
             page += 1;
         } while (page <= totalPages);
-        allNamiBlogPosts = posts; // Cập nhật cache
+
+        // Cập nhật cache
+        allNamiBlogPosts = posts;
+        lastFetchedAt = Date.now();
+
         return allNamiBlogPosts;
     } catch (error) {
-        console.error(`Lỗi khi lấy tất cả bài đăng blog Nami:`, error.response?.data || error.message);
+        console.error("Lỗi khi lấy tất cả bài đăng blog Nami:", error.response?.data || error.message);
         throw new Error("Không thể lấy dữ liệu blog từ Nami.");
     }
 }
+
 
 // console.log(allNamiBlogPosts)
 
@@ -619,8 +625,6 @@ async function update_nami_notification_setting(useDeviceNoti, useEmailNoti, lan
 }
 
 
-// Trong apiHandlers.js
-
 async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', product_type='SPOT', value = null, percentage_change = null, interval = null, frequency = 'ONLY_ONCE', lang = 'vi') {
     console.log(`Tạo cảnh báo Nami: type=${alert_type}, assets=${base_assets.join(',')}, quote=${quote_asset}, product=${product_type}, value=${value}, pct_change=${percentage_change}, interval=${interval}, freq=${frequency}, lang=${lang}`);
 
@@ -811,12 +815,516 @@ async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', pr
 }
 
 
+let allNamiFAQ = {}; // cache theo tag
+
+async function fetchAllNamiFAQ(tagsForAPI = 'faq') {
+  // 1) Trả về cache nếu đã có
+  if (Array.isArray(allNamiFAQ[tagsForAPI])) {
+    return allNamiFAQ[tagsForAPI];
+  }
+
+  const perPage = 100;
+  let page = 1;
+  let posts = [];
+  let totalPages = 1;
+
+  try {
+    // 2) Fetch hết pagination với filter tagsForAPI
+    do {
+      const url = [
+        `${process.env.NAMI_BLOG_API_BASE_URL}/posts/`,
+        `?key=${process.env.NAMI_BLOG_API_KEY}`,
+        `&limit=${perPage}`,
+        `&page=${page}`,
+        `&include=tags`,
+        `&order=published_at%20desc`,
+        `&filter=tags:[${tagsForAPI}]`
+      ].join('');
+
+      const { data } = await axios.get(url);
+      posts = posts.concat(data.posts);
+      totalPages = data.meta.pagination.pages;
+      page++;
+    } while (page <= totalPages);
+
+    // 3) Lọc:
+    //    - Bắt buộc có đúng tagsForAPI
+    //    - Loại bỏ bất kỳ post nào có tag bắt đầu bằng 'noti-'
+    const lowerReq = tagsForAPI.toLowerCase();
+    const filtered = posts.filter(post => {
+      const slugs = post.tags.map(t => t.slug.toLowerCase());
+
+      // Bỏ nếu không chứa tag bắt buộc
+      if (!slugs.includes(lowerReq)) return false;
+
+      // Bỏ nếu có bất kỳ tag nào bắt đầu bằng 'noti-'
+      if (slugs.some(s => s.startsWith('noti') || s.startsWith('noti'))) return false;
+
+      return true;
+    });
+
+    // 4) Cache & return
+    allNamiFAQ[tagsForAPI] = filtered;
+    console.log(filtered.length)
+    return filtered;
+
+  } catch (error) {
+    console.error(
+      `Lỗi khi lấy FAQ posts (tag=${tagsForAPI}):`,
+      error.response?.data || error.message
+    );
+    throw new Error("Không thể lấy dữ liệu blog từ Nami.");
+  }
+}
+
+// fetchAllNamiFAQ('faq-vi-nap-rut-tien-ma-hoa').then(r=>console.log(r))
+
+function normalizeText(text) {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, '') // xóa dấu
+    .replace(/[^\w\s]/g, '') // xóa ký tự đặc biệt
+    .trim();
+}
+
+let webUrlFaq = "https://nami.exchange/support/faq/"
+
+async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slug = null) {
+    console.log(`Đang lấy hướng dẫn onboarding cho ngôn ngữ: ${lang}, từ khóa: ${keyword}, category_slug: ${category_slug}`);
+    
+    try {
+        // let fetchTagsForAPI = 'faq';
+
+        // Mapping categories to specific slugs
+        const categorySlugMap = {
+            'huong-dan-chung': 'faq-vi-huong-dan-chung',
+            'dang-ky-tai-khoan-va-mat-khau': 'faq-vi-dang-ky-tai-khoan-va-mat-khau',
+            'chuc-nang-tai-khoan': 'faq-vi-chuc-nang-tai-khoan',
+            'nap-rut-tien-ma-hoa': 'faq-vi-nap-rut-tien-ma-hoa',
+            'giao-dich-spot': 'faq-vi-giao-dich-spot',
+            'giao-dich-futures': 'faq-vi-giao-dich-futures',
+            'quy-doi': 'faq-vi-quy-doi',
+            'daily-staking': 'faq-vi-daily-staking',
+            'token-nami': 'faq-vi-token-nami',
+            'hop-tac-kinh-doanh': 'faq-vi-hop-tac-kinh-doanh',
+            'gioi-thieu-nguoi-dung-moi': 'faq-vi-gioi-thieu-nguoi-dung-moi',
+            'tutorials': 'faq-en-tutorials',
+            'register-account-and-password': 'faq-en-register-account-and-password',
+            'account-functions': 'faq-en-account-functions',
+            'crypto-deposit-withdrawal': 'faq-en-crypto-deposit-withdrawal',
+            'spot-trading': 'faq-en-spot-trading',
+            'futures-trading': 'faq-en-futures-trading',
+            'swap': 'faq-en-swap',
+            'daily-staking-en': 'faq-en-daily-staking',
+            'nami-token': 'faq-en-nami-token',
+            'business-cooperation': 'faq-en-business-cooperation',
+        };
+
+        let fetchTags = [];
+        let targetSlugForFilter = null;
+        if (category_slug && categorySlugMap[category_slug]) {
+            targetSlugForFilter = categorySlugMap[category_slug];
+            fetchTags.push(targetSlugForFilter);
+        }
+        // console.log("Các tag đang truyền vào fetchAllNamiFAQ:", fetchTags);
+        let faqPosts = [];
+        for (const tag of fetchTags) {
+            const posts = await fetchAllNamiFAQ(tag);
+            faqPosts.push(...posts);
+        }
+    // console.log("faqPosts:",faqPosts)
+        // Xoá trùng (nếu có bài viết trùng giữa các tag)
+        faqPosts = faqPosts.filter((post, index, self) =>
+            index === self.findIndex(p => p.id === post.id)
+        );
+         console.log("faqPosts: ",faqPosts.length)
+        if (!faqPosts || faqPosts.length === 0) {
+            return { 
+                error: (lang === 'vi') 
+                    ? "Không tìm thấy bài viết hướng dẫn nào về onboarding." 
+                    : "No onboarding guide articles found." 
+            };
+        }
+        
+        // Filter by language
+        // let relevantPosts = faqPosts.filter(post => {
+        //     const postTags = post.tags || [];
+        //     const isEnglishPost = postTags.some(tag => 
+        //         tag.slug === 'en' || 
+        //         (post.primary_tag && post.primary_tag.slug.includes('-en-'))
+        //     );
+        //     const isVietnamesePost = postTags.some(tag => 
+        //         tag.slug === 'vi' || 
+        //         (post.primary_tag && post.primary_tag.slug.includes('-vi-'))
+        //     );
+
+        //     if (lang === 'en') return isEnglishPost;
+        //     if (lang === 'vi') return isVietnamesePost;
+        //     return true;
+        // });
+        // console.log(relevantPosts.length)
+        // Enhanced sorting with category priority and keyword relevance
+        faqPosts.sort((a, b) => {
+            let scoreA = 0;
+            let scoreB = 0;
+
+            // Hàm chuẩn hóa bỏ dấu và chữ hoa
+            const normalizeText = (text) =>
+                text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+            // Ưu tiên điểm nếu có category
+            const getCategoryScore = (post, slug) => {
+                // console.log("post:",post)
+                let score = 0;
+                if (post.primary_tag && post.primary_tag.slug.toLowerCase() === slug) score += 100;
+                if (post.tags.some(tag => tag.slug.toLowerCase() === slug)) score += 50;
+                return score;
+            };
+
+            if (targetSlugForFilter) {
+                scoreA += getCategoryScore(a, targetSlugForFilter);
+                scoreB += getCategoryScore(b, targetSlugForFilter);
+            }
+
+            // So sánh chỉ dựa vào title có chứa toàn bộ cụm từ keyword (đã normalize)
+            if (keyword) {
+                const keywordNormalized = normalizeText(keyword);
+                console.log(`\n🔍 DEBUG TOÀN BỘ BÀI VIẾT VỚI TỪ KHÓA: "${keyword}"\n`);
+                const titleA = normalizeText(a.title || '');
+                const titleB = normalizeText(b.title || '');
+
+                if (titleA.includes(keywordNormalized)) scoreA += 1000;
+                if (titleB.includes(keywordNormalized)) scoreB += 1000;
+            }
+            console.log(`[SCORE A] "${a.title}" → ${scoreA}`);
+            console.log(`[SCORE B] "${b.title}" → ${scoreB}`);
+            // Ưu tiên bài điểm cao hơn, nếu bằng thì bài mới hơn
+            if (scoreA !== scoreB) return scoreB - scoreA;
+            return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+        });
+
+        
+
+        if (faqPosts.length === 0) {
+            return { 
+                error: (lang === 'vi') 
+                    ? `Không tìm thấy hướng dẫn nào phù hợp với yêu cầu của bạn${keyword ? ` (từ khóa "${keyword}")` : ''}${category_slug ? ` trong mục "${category_slug}"` : ''}. Vui lòng thử từ khóa khác hoặc hỏi chung.`
+                    : `No guide found matching your request${keyword ? ` (keyword "${keyword}")` : ''}${category_slug ? ` in category "${category_slug}"` : ''}. Please try a different keyword or ask generally.`
+            };
+        }
+
+        // Enhanced content extraction for different HTML structures
+        const extractContentFromHtml = (htmlContent, lang) => {
+            const $ = cheerio.load(htmlContent);
+            const extractedContent = [];
+
+            // Remove HTML comments and script tags
+            $('<!--kg-card-begin: html-->').remove();
+            $('<!--kg-card-end: html-->').remove();
+            $('script').remove();
+
+            // Extract structured content based on different HTML patterns
+            const processElement = (elem) => {
+                const $elem = $(elem);
+                const tagName = $elem.get(0).tagName?.toLowerCase();
+                const text = $elem.text().trim();
+
+                if (!text || text.length < 10) return;
+
+                switch (tagName) {
+                    case 'h1':
+                    case 'h2':
+                    case 'h3':
+                    case 'h4':
+                    case 'h5':
+                    case 'h6':
+                        extractedContent.push({
+                            type: 'heading',
+                            level: parseInt(tagName.charAt(1)),
+                            content: text
+                        });
+                        break;
+                    
+                    case 'p':
+                        // Check for step patterns
+                        const stepPatterns = [
+                            /^(bước|step)\s*\d+\s*[:\-\.]/i,
+                            /^(i{1,3}|iv|v|vi{1,3}|ix|x)\s*[\.\:]/i,
+                            /^\d+[\.\)]\s*/,
+                            /^(lưu ý|note|quan trọng|important)\s*[:\-]/i
+                        ];
+                        
+                        const isStep = stepPatterns.some(pattern => pattern.test(text));
+                        
+                        if (isStep || text.length > 30) {
+                            extractedContent.push({
+                                type: isStep ? 'step' : 'paragraph',
+                                content: text
+                            });
+                        }
+                        break;
+                    
+                    case 'ul':
+                    case 'ol':
+                        const listItems = [];
+                        $elem.find('li').each((i, li) => {
+                            const liText = $(li).text().trim();
+                            if (liText && liText.length > 5) {
+                                listItems.push(liText);
+                            }
+                        });
+                        
+                        if (listItems.length > 0) {
+                            extractedContent.push({
+                                type: 'list',
+                                ordered: tagName === 'ol',
+                                items: listItems
+                            });
+                        }
+                        break;
+                    
+                    case 'blockquote':
+                        extractedContent.push({
+                            type: 'quote',
+                            content: text
+                        });
+                        break;
+                }
+            };
+
+            // Process all relevant elements
+            $('h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote').each((i, elem) => {
+                processElement(elem);
+            });
+
+            return extractedContent;
+        };
+
+        // Enhanced link extraction
+        const extractLinksFromHtml = (htmlContent) => {
+            const $ = cheerio.load(htmlContent);
+            const links = [];
+            const addedUrls = new Set();
+
+            // Extract links from "More information" or "Thông tin thêm" sections
+            const linkSectionSelectors = [
+                'strong:contains("More information")',
+                'strong:contains("Thông tin thêm")',
+                'strong:contains("Additional resources")',
+                'strong:contains("Tài liệu tham khảo")'
+            ];
+
+            linkSectionSelectors.forEach(selector => {
+                $(selector).parent().nextAll('ul, ol').first().find('a').each((i, link) => {
+                    const $link = $(link);
+                    const href = $link.attr('href');
+                    const text = $link.text().trim();
+                    
+                    if (href && text && !addedUrls.has(href)) {
+                        const cleanUrl = href.replace(/\?ref=blog\.nami\.exchange$/, '');
+                        links.push({ url: cleanUrl, text });
+                        addedUrls.add(href);
+                    }
+                });
+            });
+
+            // Extract other relevant links
+            $('a[href*="nami.exchange"]').each((i, link) => {
+                const $link = $(link);
+                const href = $link.attr('href');
+                const text = $link.text().trim();
+                
+                if (href && text && text.length > 5 && !addedUrls.has(href)) {
+                    const cleanUrl = href.replace(/\?ref=blog\.nami\.exchange$/, '');
+                    if (!cleanUrl.includes('#') && !text.toLowerCase().includes('tại đây')) {
+                        links.push({ url: cleanUrl, text });
+                        addedUrls.add(href);
+                    }
+                }
+            });
+
+            return links;
+        };
+
+        // Enhanced image extraction
+        const extractImagesFromHtml = (htmlContent) => {
+            const $ = cheerio.load(htmlContent);
+            const images = [];
+            
+            $('img').each((i, img) => {
+                const $img = $(img);
+                const src = $img.attr('src');
+                const alt = $img.attr('alt') || `Hình ảnh ${i + 1}`;
+                
+                if (src && src.startsWith('http')) {
+                    images.push({ url: src, alt });
+                }
+            });
+            
+            return images;
+        };
+
+        // Generate enhanced summary
+        let finalSummaryText = (lang === 'vi') 
+            ? "**Dưới đây là thông tin và hướng dẫn từ Nami Exchange:**\n\n" 
+            : "**Here is the information and guide from Nami Exchange:**\n\n";
+
+        const maxArticlesToSummarize = 3;
+        const postsToSummarize = faqPosts.slice(0, Math.min(faqPosts.length, maxArticlesToSummarize));
+        
+        let allLinks = [];
+        let allImages = [];
+        // let tags = fetchTags; 
+        for (const post of postsToSummarize) {
+
+            // const tags = fetchTags; 
+            // const result = tags.split("-").slice(2).join("-");
+            const postUrl = `${webUrlFaq}${category_slug}/${post.slug}`;
+            
+            finalSummaryText += `### ${post.title}\n\n`;
+            
+            // Add post excerpt if available
+            if (post.custom_excerpt || post.excerpt) {
+                finalSummaryText += `*${post.custom_excerpt || post.excerpt}*\n\n`;
+            }
+
+            // Extract and format content
+            const extractedContent = extractContentFromHtml(post.html, lang);
+            let contentAdded = 0;
+            const maxContentItems = 8;
+
+            for (const item of extractedContent) {
+                if (contentAdded >= maxContentItems) break;
+
+                switch (item.type) {
+                    case 'heading':
+                        if (item.level <= 3) {
+                            finalSummaryText += `${'#'.repeat(item.level + 1)} ${item.content}\n\n`;
+                            contentAdded++;
+                        }
+                        break;
+                    
+                    case 'step':
+                        finalSummaryText += `📋 **${item.content}**\n\n`;
+                        contentAdded++;
+                        break;
+                    
+                    case 'paragraph':
+                        if (item.content.length > 20) {
+                            finalSummaryText += `${item.content}\n\n`;
+                            contentAdded++;
+                        }
+                        break;
+                    
+                    case 'list':
+                        if (item.items.length > 0) {
+                            item.items.slice(0, 5).forEach(listItem => {
+                                finalSummaryText += `• ${listItem}\n`;
+                            });
+                            finalSummaryText += '\n';
+                            contentAdded++;
+                        }
+                        break;
+                    
+                    case 'quote':
+                        finalSummaryText += `> ${item.content}\n\n`;
+                        contentAdded++;
+                        break;
+                }
+            }
+
+            // Extract links and images
+            const postLinks = extractLinksFromHtml(post.html);
+            const postImages = extractImagesFromHtml(post.html);
+            
+            allLinks.push(...postLinks);
+            allImages.push(...postImages);
+
+            // Add link to the full article
+            finalSummaryText += `[📖 Đọc bài viết đầy đủ](${postUrl})\n\n`;
+            finalSummaryText += '---\n\n';
+        }
+
+        // Add related links section
+        if (allLinks.length > 0) {
+            finalSummaryText += (lang === 'vi') 
+                ? "## 🔗 Liên kết liên quan\n\n" 
+                : "## 🔗 Related Links\n\n";
+            
+            // Remove duplicates and limit links
+            const uniqueLinks = allLinks.filter((link, index, self) => 
+                self.findIndex(l => l.url === link.url) === index
+            ).slice(0, 10);
+            
+            uniqueLinks.forEach(link => {
+                finalSummaryText += `• [${link.text}](${link.url})\n`;
+            });
+            finalSummaryText += '\n';
+        }
+
+        // Add general resource links
+        const generalLinks = [
+            { slug: 'tutorials', vi: 'Tổng hợp hướng dẫn cơ bản', en: 'Basic Tutorials Collection' },
+            { slug: 'account-functions', vi: 'Chức năng tài khoản', en: 'Account Functions' },
+            { slug: 'deposit-withdraw', vi: 'Hướng dẫn Nạp/Rút tiền', en: 'Deposit/Withdrawal Guide' },
+            { slug: 'spot-trading', vi: 'Giao dịch Spot', en: 'Spot Trading' },
+            { slug: 'futures-trading', vi: 'Giao dịch Futures', en: 'Futures Trading' }
+        ];
+
+        finalSummaryText += (lang === 'vi') 
+            ? "## 📚 Tài nguyên hữu ích khác\n\n" 
+            : "## 📚 Other Useful Resources\n\n";
+        
+        generalLinks.forEach(link => {
+            const title = lang === 'vi' ? link.vi : link.en;
+            finalSummaryText += `• [${title}](${webUrlFaq}${link.slug})\n`;
+        });
+
+        // Add images section if available
+        if (allImages.length > 0) {
+            finalSummaryText += (lang === 'vi') 
+                ? "\n## 🖼️ Hình ảnh minh họa\n\n" 
+                : "\n## 🖼️ Illustrations\n\n";
+            
+            allImages.slice(0, 5).forEach((img, index) => {
+                finalSummaryText += `• [${img.alt}](${img.url})\n`;
+            });
+        }
+
+        // Add footer
+        finalSummaryText += (lang === 'vi') 
+            ? "\n---\n\n💡 **Cần hỗ trợ thêm?** Truy cập [Trung tâm hỗ trợ Nami Exchange](https://nami.exchange/vi/support) hoặc liên hệ team hỗ trợ 24/7.\n\n"
+            : "\n---\n\n💡 **Need more help?** Visit [Nami Exchange Support Center](https://nami.exchange/en/support) or contact our 24/7 support team.\n\n";
+        
+        finalSummaryText += `[🏠 ${lang === 'vi' ? 'Trang chủ FAQ' : 'FAQ Homepage'}](${webUrlFaq})`;
+
+        return {
+            source: "Nami FAQ",
+            summary: finalSummaryText,
+            posts_count: postsToSummarize.length,
+            total_found: faqPosts.length
+        };
+
+    } catch (error) {
+        console.error(`Lỗi khi lấy hướng dẫn onboarding:`, error.response?.data || error.message);
+        return { 
+            error: (lang === 'vi') 
+                ? "Không thể lấy hướng dẫn onboarding lúc này. Vui lòng thử lại sau." 
+                : "Unable to retrieve onboarding guide at this time. Please try again later." 
+        };
+    }
+}
+get_nami_onboarding_guide('vi', 'mã giới thiệu', 'chuc-nang-tai-khoan').then(r=> console.log(r))
+
+// keyword: 'mã giới thiệu', category_slug: 'chuc-nang-tai-khoan'
 const availableFunctions = {
     get_nami_token_info,
     get_nami_blog_posts,
     get_user_portfolio_performance,
     create_nami_alert,
-    update_nami_notification_setting
+    update_nami_notification_setting,
+    get_nami_onboarding_guide
 };
 
-module.exports = availableFunctions;
+module.exports = availableFunctions;``
