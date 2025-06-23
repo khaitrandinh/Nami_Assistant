@@ -54,20 +54,20 @@ document.addEventListener('DOMContentLoaded', () => {
         addMessage('ai', '<span class="loading">Đang suy nghĩ...</span>');
 
         try {
-            const response = await fetch('http://localhost:3000/ask-assistant', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ question: question })
-            });
-            // const response = await fetch('https://nami-assistant.vercel.app/ask-assistant', {
+            // const response = await fetch('http://localhost:3000/ask-assistant', {
             //     method: 'POST',
             //     headers: {
             //         'Content-Type': 'application/json'
             //     },
             //     body: JSON.stringify({ question: question })
             // });
+            const response = await fetch('https://nami-assistant.vercel.app/ask-assistant', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ question: question })
+            });
 
             const data = await response.json();
 
