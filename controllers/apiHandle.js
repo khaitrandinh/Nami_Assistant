@@ -965,44 +965,162 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
         // });
         // console.log(relevantPosts.length)
         // Enhanced sorting with category priority and keyword relevance
+
+        // faqPosts.sort((a, b) => {
+        //     let scoreA = 0;
+        //     let scoreB = 0;
+
+        //     // // Chuẩn hoá chuỗi (bỏ dấu, viết thường)
+        //     // const normalizeText = (text) =>
+        //     //     text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        //     // Tính điểm liên quan đến category (nếu có)
+        //     const getCategoryScore = (post, slug) => {
+        //         let score = 0;
+        //         if (post.primary_tag && post.primary_tag.slug.toLowerCase() === slug) score += 100;
+        //         if (post.tags.some(tag => tag.slug.toLowerCase() === slug)) score += 50;
+        //         return score;
+        //     };
+
+        //     if (targetSlugForFilter) {
+        //         scoreA += getCategoryScore(a, targetSlugForFilter);
+        //         scoreB += getCategoryScore(b, targetSlugForFilter);
+        //     }
+
+        //     // Hàm tính điểm liên quan đến keyword từng từ
+        //     const checkKeywordRelevance = (post, keyword) => {
+        //         let score = 0;
+        //         const keywordParts = normalizeText(keyword).split(' ').filter(Boolean);
+
+        //         const title = normalizeText(post.title || '');
+        //         const htmlContent = normalizeText(post.html || '');
+        //         const excerpt = normalizeText(post.custom_excerpt || post.excerpt || '');
+        //         const tags = (post.tags || []).map(tag => normalizeText(tag.name)).join(' ');
+
+        //         keywordParts.forEach(part => {
+        //             if (title.includes(part)) score += 30;
+        //             if (excerpt.includes(part)) score += 6;
+        //             if (htmlContent.includes(part)) score += 4;
+        //             if (tags.includes(part)) score += 5;
+        //         });
+
+        //         return score;
+        //     };
+
+
+        //     if (keyword) {
+        //         scoreA += checkKeywordRelevance(a, keyword);
+        //         scoreB += checkKeywordRelevance(b, keyword);
+        //         console.log(`[SCORE A] "${a.title}" → ${scoreA}`);
+        //         console.log(`[SCORE B] "${b.title}" → ${scoreB}`);
+        //     }
+
+        //     // Sắp xếp theo tổng điểm, nếu bằng thì lấy bài mới hơn
+        //     if (scoreA !== scoreB) {
+        //         return scoreB - scoreA;
+        //     }
+        //     return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+        // });
         faqPosts.sort((a, b) => {
             let scoreA = 0;
             let scoreB = 0;
 
-            // Hàm chuẩn hóa bỏ dấu và chữ hoa
-            const normalizeText = (text) =>
-                text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-            // Ưu tiên điểm nếu có category
+            // Category scoring
             const getCategoryScore = (post, slug) => {
-                // console.log("post:",post)
                 let score = 0;
                 if (post.primary_tag && post.primary_tag.slug.toLowerCase() === slug) score += 100;
                 if (post.tags.some(tag => tag.slug.toLowerCase() === slug)) score += 50;
                 return score;
             };
-
+            
             if (targetSlugForFilter) {
                 scoreA += getCategoryScore(a, targetSlugForFilter);
                 scoreB += getCategoryScore(b, targetSlugForFilter);
             }
 
-            // So sánh chỉ dựa vào title có chứa toàn bộ cụm từ keyword (đã normalize)
-            if (keyword) {
-                const keywordNormalized = normalizeText(keyword);
-                console.log(`\n🔍 DEBUG TOÀN BỘ BÀI VIẾT VỚI TỪ KHÓA: "${keyword}"\n`);
-                const titleA = normalizeText(a.title || '');
-                const titleB = normalizeText(b.title || '');
+            // Keyword relevance scoring
+            const checkKeywordRelevance = (post, rawKeyword) => {
+                let postScore = 0;
+                const keyword = normalizeText(rawKeyword);
+                const title = normalizeText(post.title || '');
+                const htmlContent = normalizeText(post.html || '');
+                const excerpt = normalizeText(post.custom_excerpt || post.excerpt || '');
+                const tags = (post.tags || []).map(tag => normalizeText(tag.name));
 
-                if (titleA.includes(keywordNormalized)) scoreA += 1000;
-                if (titleB.includes(keywordNormalized)) scoreB += 1000;
+                // Chia từ khóa thành các từ riêng lẻ để tìm kiếm chính xác hơn
+                const keywords = keyword.split(/\s+/).filter(w => w.length > 2); // Chỉ xét từ có 3 ký tự trở lên
+
+                // 1. Khớp chính xác tiêu đề
+                if (title === keyword) postScore += 50; // Ưu tiên rất cao nếu tiêu đề khớp chính xác
+
+                // 2. Kiểm tra sự xuất hiện của từng từ khóa
+                keywords.forEach(kw => {
+                    if (title.includes(kw)) postScore += 15; // Mỗi từ trong tiêu đề
+                    if (excerpt.includes(kw)) postScore += 10; // Mỗi từ trong excerpt
+                    if (htmlContent.includes(kw)) postScore += 3; // Giảm trọng số cho nội dung HTML lớn
+                    if (tags.some(tag => tag.includes(kw))) postScore += 8; // Mỗi từ trong tags
+                });
+
+                // 3. Khớp cụm từ trong tiêu đề hoặc excerpt (quan trọng hơn)
+                if (title.includes(keyword)) postScore += 20; // Nếu cả cụm từ có trong tiêu đề
+                if (excerpt.includes(keyword)) postScore += 15; // Nếu cả cụm từ có trong excerpt
+
+                // 4. Ưu tiên bài viết mới hơn nếu điểm tương đồng bằng nhau (sẽ được xử lý sau)
+
+                return postScore;
+            };
+
+
+            if (keyword) {
+                scoreA += checkKeywordRelevance(a, keyword);
+                scoreB += checkKeywordRelevance(b, keyword);
             }
-            console.log(`[SCORE A] "${a.title}" → ${scoreA}`);
-            console.log(`[SCORE B] "${b.title}" → ${scoreB}`);
-            // Ưu tiên bài điểm cao hơn, nếu bằng thì bài mới hơn
-            if (scoreA !== scoreB) return scoreB - scoreA;
+
+
+            // Final sorting
+            if (scoreA !== scoreB) {
+                return scoreB - scoreA;
+            }
             return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
         });
+        // faqPosts.sort((a, b) => {
+        //     let scoreA = 0;
+        //     let scoreB = 0;
+
+        //     // Hàm chuẩn hóa bỏ dấu và chữ hoa
+        //     const normalizeText = (text) =>
+        //         text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        //     // Ưu tiên điểm nếu có category
+        //     const getCategoryScore = (post, slug) => {
+        //         // console.log("post:",post)
+        //         let score = 0;
+        //         if (post.primary_tag && post.primary_tag.slug.toLowerCase() === slug) score += 100;
+        //         if (post.tags.some(tag => tag.slug.toLowerCase() === slug)) score += 50;
+        //         return score;
+        //     };
+
+        //     if (targetSlugForFilter) {
+        //         scoreA += getCategoryScore(a, targetSlugForFilter);
+        //         scoreB += getCategoryScore(b, targetSlugForFilter);
+        //     }
+
+        //     // So sánh chỉ dựa vào title có chứa toàn bộ cụm từ keyword (đã normalize)
+        //     if (keyword) {
+        //         const keywordNormalized = normalizeText(keyword);
+        //         // console.log(`\n🔍 DEBUG TOÀN BỘ BÀI VIẾT VỚI TỪ KHÓA: "${keyword}"\n`);
+        //         const titleA = normalizeText(a.title || '');
+        //         const titleB = normalizeText(b.title || '');
+
+        //         if (titleA.includes(keywordNormalized)) scoreA += 1000;
+        //         if (titleB.includes(keywordNormalized)) scoreB += 1000;
+        //     }
+        //     // console.log(`[SCORE A] "${a.title}" → ${scoreA}`);
+        //     // console.log(`[SCORE B] "${b.title}" → ${scoreB}`);
+        //     // Ưu tiên bài điểm cao hơn, nếu bằng thì bài mới hơn
+        //     if (scoreA !== scoreB) return scoreB - scoreA;
+        //     return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+        // });
 
         
 
@@ -1315,7 +1433,7 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
         };
     }
 }
-get_nami_onboarding_guide('vi', 'mã giới thiệu', 'chuc-nang-tai-khoan').then(r=> console.log(r))
+// get_nami_onboarding_guide('vi', 'mã giới thiệu', 'chuc-nang-tai-khoan').then(r=> console.log(r))
 
 // keyword: 'mã giới thiệu', category_slug: 'chuc-nang-tai-khoan'
 const availableFunctions = {
