@@ -141,6 +141,47 @@ const tools = [
           },
           required: ["useDeviceNoti", "useEmailNoti"]
         }
+      },
+      {
+        name: "get_nami_onboarding_guide",
+        description: "Cung cấp hướng dẫn từng bước cho người dùng mới bắt đầu sử dụng Nami Exchange, bao gồm đăng ký tài khoản, hoàn tất KYC, nạp tiền vào ví và thực hiện giao dịch đầu tiên. Sử dụng hàm này khi người dùng hỏi về 'bắt đầu', 'hướng dẫn', 'tải app xong', 'KYC', 'tạo ví', 'làm gì tiếp theo', 'làm quen app' hoặc các hướng dẫn cụ thể về onboarding. Có thể lọc theo danh mục cụ thể hoặc từ khóa chi tiết. **QUAN TRỌNG: Khi gọi hàm này, bạn PHẢI phân tích câu hỏi của người dùng để xác định `category_slug` phù hợp trong danh sách sau và truyền vào hàm. Nếu không tìm thấy `category_slug` cụ thể, bạn có thể để `category_slug` là null. TRÍCH XUẤT TỪ KHÓA chi tiết từ câu hỏi của họ để truyền vào tham số `keyword`.**",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            category_slug: {
+              type: "STRING",
+              description: "Slug của danh mục FAQ mà người dùng muốn tìm hướng dẫn. PHẢI chọn một trong các slug sau nếu câu hỏi của người dùng khớp với một danh mục cụ thể (cả tiếng Việt và tiếng Anh): 'huong-dan-chung', 'dang-ky-tai-khoan-va-mat-khau', 'chuc-nang-tai-khoan', 'nap-rut-tien-ma-hoa', 'giao-dich-spot', 'giao-dich-futures', 'quy-doi', 'daily-staking', 'token-nami', 'hop-tac-kinh-doanh', 'tutorials', 'register-account-and-password', 'account-functions', 'crypto-deposit-withdrawal', 'spot-trading', 'futures-trading', 'swap', 'daily-staking-en', 'nami-token', 'business-cooperation'.",
+              enum: [
+                'huong-dan-chung', // map to faq-vi-huong-dan-chung
+                'dang-ky-tai-khoan-va-mat-khau', // map to faq-vi-dang-ky-tai-khoan-va-mat-khau
+                'chuc-nang-tai-khoan', // map to faq-vi-chuc-nang-tai-khoan
+                'nap-rut-tien-ma-hoa', // map to faq-vi-nap-rut-tien-ma-hoa
+                'giao-dich-spot', // map to faq-vi-giao-dich-spot
+                'giao-dich-futures', // map to faq-vi-giao-dich-futures
+                'quy-doi', // map to faq-vi-quy-doi
+                'daily-staking', // map to faq-vi-daily-staking
+                'token-nami', // map to faq-vi-token-nami
+                'hop-tac-kinh-doanh', // map to faq-vi-hop-tac-kinh-doanh
+                'tutorials', // map to faq-en-tutorials
+                'register-account-and-password', // map to faq-en-register-account-and-password
+                'account-functions', // map to faq-en-account-functions
+                'crypto-deposit-withdrawal', // map to faq-en-crypto-deposit-withdrawal
+                'spot-trading', // map to faq-en-spot-trading
+                'futures-trading', // map to faq-en-futures-trading
+                'swap', // map to faq-en-swap
+                'daily-staking-en', // map to faq-en-daily-staking
+                'nami-token', // map to faq-en-nami-token
+                'business-cooperation' // map to faq-en-business-cooperation
+              ],
+              nullable: true
+            },
+            keyword: {
+              type: "STRING",
+              description: "Từ khóa cụ thể liên quan đến hướng dẫn onboarding mà người dùng muốn tìm (ví dụ: 'mật khẩu', 'rút tiền', 'lệnh limit', 'xác minh danh tính'). Từ khóa này sẽ được dùng để tìm kiếm chi tiết TRONG danh mục đã chọn hoặc để tìm bài viết phù hợp nhất nếu không có category_slug. Cần trích xuất càng chi tiết càng tốt.",
+              nullable: true
+            }
+          }
+        }
       }
     ]
   }
