@@ -990,10 +990,7 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
             sortedPosts.slice(0, 5).forEach(res => {
                 console.log(`→ ${res.title} | score+boost: ${(res._score || 1).toFixed(3)}`);
             });
-        }
-
-
-        // faqPosts.sort((a, b) => {
+        }  
         //     let scoreA = 0;
         //     let scoreB = 0;
 
@@ -1053,7 +1050,6 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
         //     return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
         // });
         console.log("Sorted FAQ posts:", sortedPosts.map(p => p.title));
-
 
         if (faqPosts.length === 0) {
             return { 

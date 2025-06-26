@@ -1,16 +1,30 @@
-const { GoogleGenerativeAIEmbeddings } = require("@langchain/google-genai");
-const { Chroma } = require("langchain/vectorstores/chroma");
-const { RetrievalQAChain } = require("langchain/chains");
-const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
+
+require('dotenv').config();
+const { Pinecone } = require('@pinecone-database/pinecone');
+const { PineconeStore } = require('@langchain/community/vectorstores/pinecone');
+const { GoogleGenerativeAIEmbeddings } = require('@langchain/google-genai');
+
+const pc = new Pinecone({
+  apiKey: process.env.PINECONE_API_KEY
+});
 
 async function getAcademyRAG() {
-    const vs = await Chroma.fromExistingIndex(
-        new GoogleGenerativeAIEmbeddings(),
-        { collectionName: "binance_academy" }
-    );
-    const retriever = vs.asRetriever();
-    const model = new ChatGoogleGenerativeAI({ model: "gemini-2.0-flash", temperature: 0.3 });
-    return RetrievalQAChain.fromLLM(model, retriever);
+  // Lấy index (lowercase)
+  const pineconeIndex = pc.index(process.env.PINECONE_INDEX_NAME);
+
+  // Tạo embeddings với API key
+  const embeddings = new GoogleGenerativeAIEmbeddings({
+    apiKey: process.env.GOOGLE_API_KEY
+  });
+
+  // Build vectorstore từ index có sẵn
+  const vectorstore = await PineconeStore.fromExistingIndex(
+    embeddings,
+    { pineconeIndex }
+  );
+
+  // Trả về retriever để RAG
+  return vectorstore.asRetriever();
 }
 
 module.exports = { getAcademyRAG };

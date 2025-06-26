@@ -9,7 +9,7 @@ const {
     update_nami_notification_setting,
     get_nami_onboarding_guide,
 } = require("../handlers/apiHandle");
-const { getAcademyRAG } = require("../ragAcademy");
+const { getAcademyRAG } = require("./rag");
 
 
 async function buildTools() {
@@ -155,15 +155,50 @@ const tools = [
     }),
     new DynamicStructuredTool({
         name: "get_binance_knowledge",
-        description: "Tìm câu trả lời từ bài học Binance Academy dành cho người mới. Dùng khi người dùng hỏi kiến thức cơ bản về blockchain, sàn giao dịch, ví, bảo mật v.v.",
+        description: "Tìm câu trả lời từ Binance Academy cho người mới, RAG dựa trên nội dung bài học.",
         schema: z.object({
-            query: z.string().describe("Câu hỏi người dùng về kiến thức học tập crypto cơ bản."),
+            query: z
+            .string()
+            .describe("Câu hỏi về kiến thức cơ bản tiền điện tử trên Binance Academy"),
         }),
         func: async ({ query }) => {
-            const result = await binanceRag.call({ query });
-            return result.text;
+            // 1. Lấy docs
+            const docs = await binanceRag.getRelevantDocuments(query);
+            if (!docs?.length) {
+            return `Không tìm thấy kết quả cho "${query}" trên Binance Academy.`;
+            }
+
+            // 2. Chọn top kết quả
+            const MAX_RESULTS = Math.min(docs.length, 5);
+            const MAX_SNIPPET = 200;
+
+            const items = docs.slice(0, MAX_RESULTS).map((d, i) => {
+            const title = d.metadata.title || `Kết quả ${i + 1}`;
+            const url = d.metadata.source;
+            let snippet = d.pageContent.trim().replace(/\s+/g, ' ');
+            if (snippet.length > MAX_SNIPPET) {
+                snippet = snippet.slice(0, MAX_SNIPPET).trim() + "...";
+            }
+            return (
+                `**${i + 1}. ${title}**  \n` +
+                `${snippet}  \n` +
+                `🔗 [Đọc thêm](${url})`
+            );
+            });
+
+            // 3. Nếu có nhiều hơn MAX_RESULTS, gợi ý xem thêm
+            if (docs.length > MAX_RESULTS) {
+            items.push(
+                `\n…vẫn còn ${docs.length - MAX_RESULTS} kết quả nữa. ` +
+                `Nếu bạn muốn, hãy yêu cầu “cho tôi xem thêm”.`
+            );
+            }
+
+            return items.join("\n\n");
         },
-    }),
+    })
+
+
 ];
 return tools;
 }
