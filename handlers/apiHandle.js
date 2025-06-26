@@ -881,15 +881,6 @@ async function fetchAllNamiFAQ(tagsForAPI = 'faq') {
 
 // fetchAllNamiFAQ('faq-vi-nap-rut-tien-ma-hoa').then(r=>console.log(r))
 
-function normalizeText(text) {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, '') // xóa dấu
-    .replace(/[^\w\s]/g, '') // xóa ký tự đặc biệt
-    .trim();
-}
-
 let webUrlFaq = "https://nami.exchange/support/faq/"
 
 async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slug = null) {

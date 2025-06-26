@@ -14,7 +14,8 @@ async function getAcademyRAG() {
 
   // Tạo embeddings với API key
   const embeddings = new GoogleGenerativeAIEmbeddings({
-    apiKey: process.env.GOOGLE_API_KEY
+    apiKey: process.env.GOOGLE_API_KEY,
+    model: "text-embedding-004"
   });
 
   // Build vectorstore từ index có sẵn
@@ -22,9 +23,16 @@ async function getAcademyRAG() {
     embeddings,
     { pineconeIndex }
   );
-
+  const retriever = vectorstore.asRetriever({
+      searchType: 'mmr',
+      searchTypeOptions: { 
+        fetchK: 20,      // Tăng lên để có nhiều candidate hơn
+        k: 3,           // Trả về 5 kết quả cuối cùng
+        lambda: 0.5     // Balance giữa relevance và diversity (0.5 = cân bằng)
+      }
+    });
   // Trả về retriever để RAG
-  return vectorstore.asRetriever();
+  return retriever;
 }
 
 module.exports = { getAcademyRAG };

@@ -1,6 +1,7 @@
 const { DynamicStructuredTool } = require("langchain/tools");
 const { z } = require("zod");
-
+const { loadSummarizationChain } = require("langchain/chains");
+const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
 const {
     get_nami_token_info,
     get_nami_blog_posts,
@@ -15,6 +16,14 @@ const { getAcademyRAG } = require("./rag");
 async function buildTools() {
 const binanceRag = await getAcademyRAG();
 
+ const summarizationChain = loadSummarizationChain(
+    new ChatGoogleGenerativeAI({
+      model: "gemini-2.0-flash",
+      temperature: 0,
+      apiKey: process.env.GOOGLE_API_KEY
+    }),
+    { type: "map_reduce" }
+  );
 const tools = [
     new DynamicStructuredTool({
         name: "get_nami_token_info",
@@ -154,49 +163,78 @@ const tools = [
         },
     }),
     new DynamicStructuredTool({
-        name: "get_binance_knowledge",
-        description: "Tìm câu trả lời từ Binance Academy cho người mới, RAG dựa trên nội dung bài học.",
-        schema: z.object({
-            query: z
-            .string()
-            .describe("Câu hỏi về kiến thức cơ bản tiền điện tử trên Binance Academy"),
-        }),
-        func: async ({ query }) => {
-            // 1. Lấy docs
-            const docs = await binanceRag.getRelevantDocuments(query);
-            if (!docs?.length) {
-            return `Không tìm thấy kết quả cho "${query}" trên Binance Academy.`;
-            }
+      name: 'get_binance_knowledge',
+      description: 'Deep‐search RAG trên Binance Academy: tóm tắt nội dung và cung cấp link.',
+      schema: z.object({
+        query: z.string().describe(
+          'Câu hỏi về kiến thức cơ bản trên Binance Academy'
+        )
+      }),
+      func: async ({ query }) => {
+        const docs = await binanceRag.getRelevantDocuments(query);
+        if (!docs.length) {
+          return `Không tìm thấy kết quả cho "${query}" trên Binance Academy.`;
+        }
+        // Tóm tắt đa tài liệu
+        const summary = await summarizationChain.call({
+          input_documents: docs,
+          question: query
+        });
+        // Liệt kê link
+        const links = docs.map((d, i) =>
+          `**${i + 1}.** [${d.metadata.title}](${d.metadata.source}) \n` +
+            `*${d.metadata.description || 'Không có mô tả'}*`
+        ).join('\n');
 
-            // 2. Chọn top kết quả
-            const MAX_RESULTS = Math.min(docs.length, 5);
-            const MAX_SNIPPET = 200;
+        return `${summary.text.trim()}\n\n🔗 Đọc chi tiết:\n${links}`;
+      }
+    }),
 
-            const items = docs.slice(0, MAX_RESULTS).map((d, i) => {
-            const title = d.metadata.title || `Kết quả ${i + 1}`;
-            const url = d.metadata.source;
-            let snippet = d.pageContent.trim().replace(/\s+/g, ' ');
-            if (snippet.length > MAX_SNIPPET) {
-                snippet = snippet.slice(0, MAX_SNIPPET).trim() + "...";
-            }
-            return (
-                `**${i + 1}. ${title}**  \n` +
-                `${snippet}  \n` +
-                `🔗 [Đọc thêm](${url})`
-            );
-            });
+    // new DynamicStructuredTool({
+    //     name: "get_binance_knowledge",
+    //     description: "Tìm câu trả lời từ Binance Academy cho người mới, RAG dựa trên nội dung bài học.",
+    //     schema: z.object({
+    //         query: z
+    //         .string()
+    //         .describe("Câu hỏi về kiến thức cơ bản tiền điện tử trên Binance Academy"),
+    //     }),
+    //     func: async ({ query }) => {
+    //         // 1. Lấy docs
+    //         const docs = await binanceRag.getRelevantDocuments(query);
+    //         if (!docs?.length) {
+    //         return `Không tìm thấy kết quả cho "${query}" trên Binance Academy.`;
+    //         }
+    //         // 2. Chọn top kết quả
+    //         const MAX_RESULTS = Math.min(docs.length, 5);
+    //         const MAX_SNIPPET = 200;
+    //         // console.log(`→ Found ${docs} results, returning top ${MAX_RESULTS}`);
+    //         const items = docs.slice(0, MAX_RESULTS).map((d, i) => {
+    //             const title = d.metadata.title || `Kết quả ${i + 1}`;
+    //             const url = d.metadata.source;
+    //             let raw = d.metadata?.description || "";
+    //             let snippet = raw.trim().replace(/\s+/g, ' ');
+    //             if (snippet.length > MAX_SNIPPET) {
+    //                 snippet = snippet.slice(0, MAX_SNIPPET).trim() + "...";
+    //             }
+    //             // console.log(`→ Processing doc ${raw} characters: ${title}`);
+    //             // console.log(`→ Extracted content length: ${metadata.pageContent} characters`);
+    //             return (
+    //                 `**${i + 1}. ${title}**  \n\n` +
+    //                 `${snippet}  \n\n` +
+    //                 `🔗 [Đọc thêm](${url})`
+    //             );
+    //         });
+    //         // 3. Nếu có nhiều hơn MAX_RESULTS, gợi ý xem thêm
+    //         if (docs.length > MAX_RESULTS) {
+    //         items.push(
+    //             `\n…vẫn còn ${docs.length - MAX_RESULTS} kết quả nữa. ` +
+    //             `Nếu bạn muốn, hãy yêu cầu “cho tôi xem thêm”.`
+    //         );
+    //         }
 
-            // 3. Nếu có nhiều hơn MAX_RESULTS, gợi ý xem thêm
-            if (docs.length > MAX_RESULTS) {
-            items.push(
-                `\n…vẫn còn ${docs.length - MAX_RESULTS} kết quả nữa. ` +
-                `Nếu bạn muốn, hãy yêu cầu “cho tôi xem thêm”.`
-            );
-            }
-
-            return items.join("\n\n");
-        },
-    })
+    //         return items.join("\n\n");
+    //     },
+    // })
 
 
 ];

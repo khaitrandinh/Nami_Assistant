@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Use AbortController for timeout (supported in modern browsers)
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 100000); // 30s timeout
 
             const response = await fetch('http://localhost:3000/chat', {
                 method: 'POST',
@@ -223,5 +223,5 @@ document.addEventListener('DOMContentLoaded', () => {
     userInput.focus();
 
     // Welcome message
-    addMessage('ai', '👋 **Chào bạn!** Tôi là AI Assistant của Nami Exchange. \n\nBạn có thể hỏi tôi về:\n• Thông tin về ví của bạn \n• Thông tin Token\n• Tin tức thị trường\n• Đặt Thông báo giá \n• Hướng dẫn sử dụng Nami exchange\n\nHãy đặt câu hỏi để bắt đầu! 🚀');
+    addMessage('ai', '👋 **Chào bạn!** Tôi là AI Assistant của Nami Exchange. \n\nBạn có thể hỏi tôi về:\n• Thông tin về ví của bạn \n• Thông tin Token\n• Tin tức thị trường\n• Đặt Thông báo giá \n• Hướng dẫn sử dụng Nami exchange\n• Gợi ý một số bài viết, khóa học từ binance Academy   \n\nHãy đặt câu hỏi để bắt đầu! 🚀');
 });
