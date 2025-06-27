@@ -11,7 +11,8 @@ const {
     get_nami_onboarding_guide,
 } = require("../handlers/apiHandle");
 const { getAcademyRAG } = require("./rag");
-
+const Sentiment = require('sentiment');
+const sentiment = new Sentiment();
 
 async function buildTools() {
 const binanceRag = await getAcademyRAG();
@@ -189,52 +190,75 @@ const tools = [
         return `${summary.text.trim()}\n\n🔗 Đọc chi tiết:\n${links}`;
       }
     }),
+    new DynamicStructuredTool({
+      name: "emotion_support",
+      description: "Phát hiện sắc thái cảm xúc, đánh giá mức độ stress/lo lắng và (nếu cần) trả về prompt hỗ trợ với nút “Đồng ý”/“Không”.",
+      schema: z.object({
+        text: z.string().describe("Nội dung người dùng nhập")
+      }),
+      func: async ({ text }) => {
+        //  Phân tích sentiment
+        const result = sentiment.analyze(text);
+        console.log(`→ Sentiment analysis result: ${JSON.stringify(result)}`);
 
-    // new DynamicStructuredTool({
-    //     name: "get_binance_knowledge",
-    //     description: "Tìm câu trả lời từ Binance Academy cho người mới, RAG dựa trên nội dung bài học.",
-    //     schema: z.object({
-    //         query: z
-    //         .string()
-    //         .describe("Câu hỏi về kiến thức cơ bản tiền điện tử trên Binance Academy"),
-    //     }),
-    //     func: async ({ query }) => {
-    //         // 1. Lấy docs
-    //         const docs = await binanceRag.getRelevantDocuments(query);
-    //         if (!docs?.length) {
-    //         return `Không tìm thấy kết quả cho "${query}" trên Binance Academy.`;
-    //         }
-    //         // 2. Chọn top kết quả
-    //         const MAX_RESULTS = Math.min(docs.length, 5);
-    //         const MAX_SNIPPET = 200;
-    //         // console.log(`→ Found ${docs} results, returning top ${MAX_RESULTS}`);
-    //         const items = docs.slice(0, MAX_RESULTS).map((d, i) => {
-    //             const title = d.metadata.title || `Kết quả ${i + 1}`;
-    //             const url = d.metadata.source;
-    //             let raw = d.metadata?.description || "";
-    //             let snippet = raw.trim().replace(/\s+/g, ' ');
-    //             if (snippet.length > MAX_SNIPPET) {
-    //                 snippet = snippet.slice(0, MAX_SNIPPET).trim() + "...";
-    //             }
-    //             // console.log(`→ Processing doc ${raw} characters: ${title}`);
-    //             // console.log(`→ Extracted content length: ${metadata.pageContent} characters`);
-    //             return (
-    //                 `**${i + 1}. ${title}**  \n\n` +
-    //                 `${snippet}  \n\n` +
-    //                 `🔗 [Đọc thêm](${url})`
-    //             );
-    //         });
-    //         // 3. Nếu có nhiều hơn MAX_RESULTS, gợi ý xem thêm
-    //         if (docs.length > MAX_RESULTS) {
-    //         items.push(
-    //             `\n…vẫn còn ${docs.length - MAX_RESULTS} kết quả nữa. ` +
-    //             `Nếu bạn muốn, hãy yêu cầu “cho tôi xem thêm”.`
-    //         );
-    //         }
+        // Đếm từ khóa stress/positive
+        const stressKeywords = [
+          'mất tiền','thua lỗ','liquidated','margin call','sập giá',
+          'panic','sợ hãi','lo lắng','stress','áp lực','không ngủ được',
+          'phá sản','nợ nần','gia đình','vay tiền','all in','buồn',
+          'chán nản','khó khăn','khủng hoảng','đau đầu','tức giận',
+          'khó chịu','bực bội','khó khăn tài chính','khủng ổn định',
+          'khủng hoảng tâm lý','khủng hoảng cảm xúc','khủng hoảng đầu tư',
+          'khủng hoảng thị trường','khủng hoảng tiền tệ'
+        ];
+        const positiveKeywords = [
+          'lãi','profit','moon','to the moon','hold','hodl',
+          'mua đáy','dca','long term','tin tưởng'
+        ];
 
-    //         return items.join("\n\n");
-    //     },
-    // })
+        const low = text.toLowerCase();
+        const stressCount   = stressKeywords.filter(w => low.includes(w)).length;
+        const positiveCount = positiveKeywords.filter(w => low.includes(w)).length;
+
+        //  Tính adjusted score và phân loại
+        let adjustedScore = result.score - stressCount * 2 + positiveCount;
+        let emotionLevel;
+        if (adjustedScore <= -3)       emotionLevel = 'very_negative';
+        else if (adjustedScore <= -1)  emotionLevel = 'negative';
+        else if (adjustedScore <= 1)   emotionLevel = 'neutral';
+        else if (adjustedScore <= 3)   emotionLevel = 'positive';
+        else                            emotionLevel = 'very_positive';
+
+        const needsSupport = adjustedScore <= -2 || stressCount >= 2;
+
+        // Trả kết quả chung, kèm prompt nếu cần support
+        const base = {
+          score: result.score,
+          adjustedScore,
+          comparative: result.comparative,
+          emotionLevel,
+          stressIndicators: stressCount,
+          positiveIndicators: positiveCount,
+          needsSupport
+        };
+
+        if (needsSupport) {
+          return {
+            ...base,
+            confirmSupport: true,
+            message_vi: "Mình hiểu điều này có thể khiến bạn thấy choáng ngợp.\n• Nếu bạn muốn, mình có thể kết nối bạn với đội ngũ hỗ trợ của Nami, hoặc chia sẻ một vài mẹo giúp bạn quản lý rủi ro tốt hơn. \n\n**Mình luôn ở đây để đồng hành cùng bạn!**",
+            message_en: "I understand this can be overwhelming. If you want, I can connect you to Nami's support team, or share some tips to help you manage your risk better. I'm here to help you."
+          };
+        } else {
+          return {
+            ...base,
+            confirmSupport: false
+          };
+        }
+      },
+    }),
+  
+
 
 
 ];

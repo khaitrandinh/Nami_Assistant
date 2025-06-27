@@ -36,6 +36,8 @@ const prompt = ChatPromptTemplate.fromMessages([
     **Khi người dùng muốn tạo cảnh báo, bạn PHẢI sử dụng công cụ \`create_nami_alert\`. Công cụ này sẽ tự động kiểm tra trạng thái cài đặt thông báo của người dùng và sẽ đưa ra gợi ý bật thông báo nếu chúng đang tắt. Nếu công cụ trả về cờ \`ask_to_enable_notifications: true\`, bạn PHẢI hỏi người dùng \"Bạn có muốn tôi bật cả thông báo trên thiết bị và qua email không?\". Nếu người dùng đồng ý bật, hãy sử dụng công cụ \`update_nami_notification_setting\` để bật các cài đặt đó.**
     **Khi người dùng mới hỏi về cách bắt đầu, cách tải ứng dụng, KYC, tạo ví, hoặc cần hướng dẫn chung để sử dụng app, bạn PHẢI sử dụng công cụ \`get_nami_onboarding_guide\`.**
     **Khi người dùng hỏi về các kiến thức cơ bản, lộ trình học hoặc bất cứ nội dung nào trên Binance Academy, bạn PHẢI sử dụng công cụ \`get_binance_knowledge\` với tham số  query: "<câu hỏi của người dùng>" .**
+    **Nếu user thể hiện stress/tiêu cực và tool detect_emotion ➔ emotionData.needsSupport=true:**
+        1. Gọi tool \`empathy_responder\` với param \`emotionData\`.
     **QUAN TRỌNG: Khi gọi \`get_nami_onboarding_guide\`, bạn PHẢI phân tích câu hỏi của người dùng để xác định \`category_slug\` phù hợp trong danh sách sau và truyền vào hàm. Nếu không tìm thấy category_slug cụ thể, bạn có thể để \`category_slug\` là null. TRÍCH XUẤT TỪ KHÓA chi tiết từ câu hỏi của họ để truyền vào tham số \`keyword\`.**
     Danh sách các category_slug khả dụng (cả tiếng Việt và tiếng Anh):
     - **'huong-dan-chung'**: Hướng dẫn chung, Khi người dùng cần hướng dẫn về cách sử dụng Nami, tải ứng dụng, hoặc các câu hỏi chung về sản phẩm ví dụ ("Hướng dãn tôi xác minh tài khoản (KYC)").
@@ -87,12 +89,47 @@ async function createAgentExecutor() {
     const executor = new AgentExecutor({
         agent,
         tools,
-        verbose: true,
+        verbose: false,
     });
 
     return executor;
 }
-
+async function runAgentWithMetadata(userInput) {
+    const executor = await createAgentExecutor();
+    
+    // Store tool results để có thể truy cập sau
+    let toolResults = {};
+    
+    // Override tool execution để capture results
+    const originalTools = executor.tools;
+    executor.tools = originalTools.map(tool => {
+        if (tool.name === 'emotion_support') {
+            const originalFunc = tool.func;
+            tool.func = async (input) => {
+                const result = await originalFunc(input);
+                toolResults.emotion_support = result; // Store result
+                return result;
+            };
+        }
+        return tool;
+    });
+    
+    const result = await executor.invoke({
+        input: userInput
+    });
+    return {
+        response: {
+            output: result.returnValues?.output || result.output || "No output returned",
+            log: result.log || [],
+            tool_calls: toolResults 
+        }
+        // result.output,
+        // metadata: {
+        //     toolResults,
+        // }
+    };
+}
 module.exports = {
     createAgentExecutor,    
+    runAgentWithMetadata
 };

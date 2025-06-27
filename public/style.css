@@ -535,3 +535,22 @@ body {
         background: #2d2d2d;
     }
 }
+/* Support buttons prompt */
+.support-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px 0;
+}
+.support-buttons .support-btn {
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.support-buttons .support-btn.no {
+  background: #f44336;
+}

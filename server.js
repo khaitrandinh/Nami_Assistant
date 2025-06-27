@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { createAgentExecutor } = require("./agent/agent");
+const { createAgentExecutor, runAgentWithMetadata } = require("./agent/agent");
 require("dotenv").config();
 const detectLanguage = require("./utils/langDetect");
 
@@ -20,6 +20,39 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// app.post("/chat", async (req, res) => {
+//     const userInput = req.body.message;
+
+//     if (!userInput) {
+//         return res.status(400).json({ error: "Missing 'message' in request body" });
+//     }
+
+//     try {
+//         const detectedLang = await detectLanguage(userInput);
+//         // console.log(`Detected user language: ${detectedLang}`);
+        
+//         if (!executorPromise) {
+//             executorPromise = createAgentExecutor();
+//         }
+//         const executor = await executorPromise;
+//         const result = await executor.invoke({
+//             input: userInput,
+//             lang: detectedLang // nếu agent hỗ trợ
+//         }); 
+//         console.log("Agent result:", result);
+//         return res.json({
+//             returnValues: result.returnValues,
+//             output: result.output,
+//             log: result.log,
+//             // toolCalls: result.tool_calls ?? [] 
+//         });
+//     } catch (err) {
+//         console.error("Error processing /chat:", err);
+//         return res.status(500).json({ error: "Internal server error. Please try again later." });
+//     }
+// });
+
+
 app.post("/chat", async (req, res) => {
     const userInput = req.body.message;
 
@@ -29,28 +62,45 @@ app.post("/chat", async (req, res) => {
 
     try {
         const detectedLang = await detectLanguage(userInput);
-        console.log(`Detected user language: ${detectedLang}`);
+        // console.log(`Detected user language: ${detectedLang}`);
         
-        if (!executorPromise) {
-            executorPromise = createAgentExecutor();
-        }
-        const executor = await executorPromise;
-        const result = await executor.invoke({
-            input: userInput,
-            lang: detectedLang // nếu agent hỗ trợ
-        });
-
-        return res.json({
-            returnValues: result.returnValues,
-            output: result.output,
-            log: result.log,
-        });
+        // Sử dụng runAgentWithMetadata thay vì createAgentExecutor trực tiếp
+        const result = await runAgentWithMetadata(userInput);
+        
+        // console.log("Agent result:", result.response.tool_calls);
+        // const emotionData1 = result.metadata?.toolResults?.emotion_support;
+        // const emotionData2 = result.metadata?.toolResults?.['emotion_support'];
+        // Extract emotion support data nếu có
+        const emotionData = result.metadata?.toolResults?.emotion_support;
+        // console.log("Emotion support data:", emotionData);
+        // Prepare response
+        const response = {
+            output: result.response,
+            // Giữ nguyên format cũ để tương thích
+            returnValues: { output: result.response },
+            toolCalls: result.response.tool_calls
+        };
+        
+        // Thêm emotion support data nếu có
+        // if (emotionData) {
+        //     response.emotionSupport = {
+        //         needsSupport: emotionData.needsSupport,
+        //         confirmSupport: emotionData.confirmSupport,
+        //         message_vi: emotionData.message_vi,
+        //         message_en: emotionData.message_en,
+        //         emotionLevel: emotionData.emotionLevel,
+        //         score: emotionData.score,
+        //         adjustedScore: emotionData.adjustedScore
+        //     };
+        // }
+        console.log("Agent result:", response);
+        return res.json(response);
+        
     } catch (err) {
         console.error("Error processing /chat:", err);
         return res.status(500).json({ error: "Internal server error. Please try again later." });
     }
 });
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 AI Server is running at http://localhost:${PORT}`);
