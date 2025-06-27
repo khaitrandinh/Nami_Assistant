@@ -23,12 +23,13 @@ async function getAcademyRAG() {
     embeddings,
     { pineconeIndex }
   );
+
   const retriever = vectorstore.asRetriever({
       searchType: 'mmr',
       searchTypeOptions: { 
-        fetchK: 20,      // Tăng lên để có nhiều candidate hơn
-        k: 3,           // Trả về 5 kết quả cuối cùng
-        lambda: 0.5     // Balance giữa relevance và diversity (0.5 = cân bằng)
+        fetchK: 100,      // Tăng lên để có nhiều candidate hơn
+        k: 10,           // Trả về 5 kết quả cuối cùng
+        lambda: 0.7     // Balance giữa relevance và diversity (0.5 = cân bằng)
       }
     });
   // Trả về retriever để RAG

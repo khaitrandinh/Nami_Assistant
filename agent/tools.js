@@ -20,7 +20,7 @@ const binanceRag = await getAcademyRAG();
  const summarizationChain = loadSummarizationChain(
     new ChatGoogleGenerativeAI({
       model: "gemini-2.0-flash",
-      temperature: 0,
+      temperature: 0.2,
       apiKey: process.env.GOOGLE_API_KEY
     }),
     { type: "map_reduce" }
@@ -173,6 +173,10 @@ const tools = [
       }),
       func: async ({ query }) => {
         const docs = await binanceRag.getRelevantDocuments(query);
+
+
+        // console.log(`→ Found ${docs.length} documents for query: "${query}"`);
+        console.log(`→ Documents: ${docs.map(d => d.metadata.snippet).join(', ')}`);
         if (!docs.length) {
           return `Không tìm thấy kết quả cho "${query}" trên Binance Academy.`;
         }
@@ -184,7 +188,7 @@ const tools = [
         // Liệt kê link
         const links = docs.map((d, i) =>
           `**${i + 1}.** [${d.metadata.title}](${d.metadata.source}) \n` +
-            `*${d.metadata.description || 'Không có mô tả'}*`
+            `\n*${d.metadata.description || 'Không có mô tả'}*`
         ).join('\n');
 
         return `${summary.text.trim()}\n\n🔗 Đọc chi tiết:\n${links}`;
