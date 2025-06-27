@@ -8,19 +8,26 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Connection Status -->
+    <div id="connection-status" class="connection-status offline" style="display: none;">Connection...</div>
+    
+
     <div class="chat-container">
         <div class="chat-header">
             <h1>NAMI AI Assistant</h1>
         </div>
         <div class="chat-messages" id="chat-messages">
-            </div>
+        <form id="chat-form" autocomplete="off"></form>
+            <!-- Messages will be added here -->
+        </div>
         <div class="chat-input">
-            <input type="text" id="user-input" placeholder="Hỏi về tiền điện tử...">
-            <button id="send-button">Gửi</button>
+            <input type="text" id="user-input" placeholder="Hỏi về tiền điện tử..." maxlength="500">
+            <button id="send-button">Send</button>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="script.js"></script>
+
 </body>
 </html>

@@ -1,8 +1,10 @@
 // apiHandlers.js
 const axios = require('axios');
-require('dotenv').config();
+require('dotenv').config({path: '../.env'});
+// require('dotenv').config();
 const { convert } = require('html-to-text');
 const cheerio = require('cheerio');
+const Fuse = require('fuse.js');
 
 const NAMI_BLOG_API_BASE_URL = process.env.NAMI_BLOG_API_BASE_URL;
 const NAMI_BLOG_API_KEY = process.env.NAMI_BLOG_API_KEY; 
@@ -359,7 +361,6 @@ async function get_nami_token_symbol(assetId) {
 }
 
 async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST') {
-
     console.log("Đang lấy api")
     let baseCurrency;
     if (nameCurrency === 'VNST') {
@@ -371,6 +372,7 @@ async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST'
     console.log(`Lấy hiệu suất portfolio: lang=${lang}, baseCurrency=${baseCurrency}`);
 
     try {
+        // console.log("TOKEN:",process.env.NAMI_USER_AUTH_TOKEN)
         if (!process.env.NAMI_USER_AUTH_TOKEN) {
             return {
                 error: (lang === 'vi')
@@ -378,16 +380,16 @@ async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST'
                     : "Cannot access portfolio data. Authentication token is missing."
             };
         }
-
+        // console.log("TOKEN:",process.env.NAMI_USER_AUTH_TOKEN)
         const portfolioResponse = await axios.get(
             `${process.env.NAMI_TEST_API_BASE_URL}/api/v3/metric/spot-statistic/portfolio-assets?baseCurrency=${baseCurrency}`,
             {
                 headers: {
-                    'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}` || '18',
+                    'fakeauthorization': `${process.env.NAMI_USER_AUTH_TOKEN}`,
                 }
             }
         );
-        console.log(portfolioResponse)
+        // console.log(portfolioResponse)
         const portfolioData = portfolioResponse.data.data;
         if (!portfolioData || portfolioData.length === 0) {
             return {
@@ -443,7 +445,7 @@ async function get_user_portfolio_performance(lang = 'vi', nameCurrency = 'VNST'
                 currentPrice = 1 / usdToVnstRate;
             } else {
                 try {
-                    const marketWatchResponse = await axios.get(`${process.env.NAMI_SPOT_API_MARKET_WATCH}`, {
+                    const marketWatchResponse = await axios.get(`${process.env.NAMI_TEST_API_BASE_URL}/api/v3/spot/market_watch`, {
                         params: { symbol: marketWatchSymbol }
                     });
                     const rawMarketData = marketWatchResponse.data.data;
@@ -879,15 +881,6 @@ async function fetchAllNamiFAQ(tagsForAPI = 'faq') {
 
 // fetchAllNamiFAQ('faq-vi-nap-rut-tien-ma-hoa').then(r=>console.log(r))
 
-function normalizeText(text) {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, '') // xóa dấu
-    .replace(/[^\w\s]/g, '') // xóa ký tự đặc biệt
-    .trim();
-}
-
 let webUrlFaq = "https://nami.exchange/support/faq/"
 
 async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slug = null) {
@@ -933,12 +926,12 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
             const posts = await fetchAllNamiFAQ(tag);
             faqPosts.push(...posts);
         }
-    // console.log("faqPosts:",faqPosts)
+    // console.log("faqPosts:",fetchTags)
         // Xoá trùng (nếu có bài viết trùng giữa các tag)
         faqPosts = faqPosts.filter((post, index, self) =>
             index === self.findIndex(p => p.id === post.id)
         );
-         console.log("faqPosts: ",faqPosts.length)
+        //  console.log("faqPosts: ",faqPosts.length)
         if (!faqPosts || faqPosts.length === 0) {
             return { 
                 error: (lang === 'vi') 
@@ -947,182 +940,107 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
             };
         }
         
-        // Filter by language
-        // let relevantPosts = faqPosts.filter(post => {
-        //     const postTags = post.tags || [];
-        //     const isEnglishPost = postTags.some(tag => 
-        //         tag.slug === 'en' || 
-        //         (post.primary_tag && post.primary_tag.slug.includes('-en-'))
-        //     );
-        //     const isVietnamesePost = postTags.some(tag => 
-        //         tag.slug === 'vi' || 
-        //         (post.primary_tag && post.primary_tag.slug.includes('-vi-'))
-        //     );
+        // Sau khi đã có faqPosts
+        let sortedPosts = faqPosts;
 
-        //     if (lang === 'en') return isEnglishPost;
-        //     if (lang === 'vi') return isVietnamesePost;
-        //     return true;
-        // });
-        // console.log(relevantPosts.length)
-        // Enhanced sorting with category priority and keyword relevance
+        // Nếu có từ khóa, áp dụng fuzzy search với Fuse.js
+        if (keyword && keyword.trim().length > 1) {
+            const fuse = new Fuse(faqPosts, {
+                includeScore: true,
+                threshold: 0.35,
+                ignoreLocation: true,
+                keys: [
+                    { name: 'title', weight: 0.5 },
+                    { name: 'custom_excerpt', weight: 0.2 },
+                    { name: 'html', weight: 0.1 },
+                    { name: 'tags.name', weight: 0.2 },
+                ],
+            });
 
-        // faqPosts.sort((a, b) => {
+            const results = fuse.search(keyword.trim());
+            sortedPosts = results.map(res => ({ ...res.item, _score: res.score }));
+
+            // ✅ Boost nếu tiêu đề chứa từ khóa chính xác (exact match hoặc chứa cụm)
+            const kwNorm = keyword.trim().toLowerCase();
+
+            sortedPosts.sort((a, b) => {
+                const boost = (post) => {
+                    const title = (post.title || '').toLowerCase();
+                    if (title === kwNorm) return -1000; // Ưu tiên cao nhất nếu tiêu đề trùng khớp hoàn toàn
+                    if (title.includes(`(${kwNorm})`)) return -800; // Khớp trong ngoặc
+                    if (title.includes(kwNorm)) return -500;        // Khớp nội dung
+                    return 0; // không boost
+                };
+
+                const scoreA = (a._score || 1) + boost(a);
+                const scoreB = (b._score || 1) + boost(b);
+                return scoreA - scoreB; // sắp xếp tăng dần (score thấp là tốt hơn)
+            });
+
+            console.log("🔍 Fuzzy matched posts with boost:");
+            sortedPosts.slice(0, 5).forEach(res => {
+                console.log(`→ ${res.title} | score+boost: ${(res._score || 1).toFixed(3)}`);
+            });
+        }  
         //     let scoreA = 0;
         //     let scoreB = 0;
 
-        //     // // Chuẩn hoá chuỗi (bỏ dấu, viết thường)
-        //     // const normalizeText = (text) =>
-        //     //     text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-        //     // Tính điểm liên quan đến category (nếu có)
+        //     // Category scoring
         //     const getCategoryScore = (post, slug) => {
         //         let score = 0;
         //         if (post.primary_tag && post.primary_tag.slug.toLowerCase() === slug) score += 100;
         //         if (post.tags.some(tag => tag.slug.toLowerCase() === slug)) score += 50;
         //         return score;
         //     };
-
+            
         //     if (targetSlugForFilter) {
         //         scoreA += getCategoryScore(a, targetSlugForFilter);
         //         scoreB += getCategoryScore(b, targetSlugForFilter);
         //     }
 
-        //     // Hàm tính điểm liên quan đến keyword từng từ
-        //     const checkKeywordRelevance = (post, keyword) => {
-        //         let score = 0;
-        //         const keywordParts = normalizeText(keyword).split(' ').filter(Boolean);
-
+        //     // Keyword relevance scoring
+        //     const checkKeywordRelevance = (post, rawKeyword) => {
+        //         let postScore = 0;
+        //         const keyword = normalizeText(rawKeyword);
         //         const title = normalizeText(post.title || '');
         //         const htmlContent = normalizeText(post.html || '');
-        //         const excerpt = normalizeText(post.custom_excerpt || post.excerpt || '');
-        //         const tags = (post.tags || []).map(tag => normalizeText(tag.name)).join(' ');
-
-        //         keywordParts.forEach(part => {
-        //             if (title.includes(part)) score += 30;
-        //             if (excerpt.includes(part)) score += 6;
-        //             if (htmlContent.includes(part)) score += 4;
-        //             if (tags.includes(part)) score += 5;
+        //         const excerpt = normalizeText(post.excerpt || '');
+        //         const tags = (post.tags || []).map(tag => normalizeText(tag.name));
+        //         // Chia từ khóa thành các từ riêng lẻ để tìm kiếm chính xác hơn
+        //         const keywords = keyword.split(/\s+/).filter(w => w.length > 2); // Chỉ xét từ có 3 ký tự trở lên
+        //         // 1. Khớp chính xác tiêu đề
+        //         if (title === keyword) postScore += 50; // Ưu tiên rất cao nếu tiêu đề khớp chính xác
+        //         // 2. Kiểm tra sự xuất hiện của từng từ khóa
+        //         keywords.forEach(kw => {
+        //             if (title.includes(kw)) postScore += 15; // Mỗi từ trong tiêu đề
+        //             if (excerpt.includes(kw)) postScore += 10; // Mỗi từ trong excerpt
+        //             if (htmlContent.includes(kw)) postScore += 3; // Giảm trọng số cho nội dung HTML lớn
+        //             if (tags.some(tag => tag.includes(kw))) postScore += 8; // Mỗi từ trong tags
         //         });
 
-        //         return score;
+        //         // 3. Khớp cụm từ trong tiêu đề hoặc excerpt (quan trọng hơn)
+        //         if (title.includes(keyword)) postScore += 20; // Nếu cả cụm từ có trong tiêu đề
+        //         if (excerpt.includes(keyword)) postScore += 15; // Nếu cả cụm từ có trong excerpt
+
+        //         // 4. Ưu tiên bài viết mới hơn nếu điểm tương đồng bằng nhau (sẽ được xử lý sau)
+
+        //         return postScore;
         //     };
 
 
         //     if (keyword) {
         //         scoreA += checkKeywordRelevance(a, keyword);
         //         scoreB += checkKeywordRelevance(b, keyword);
-        //         console.log(`[SCORE A] "${a.title}" → ${scoreA}`);
-        //         console.log(`[SCORE B] "${b.title}" → ${scoreB}`);
         //     }
 
-        //     // Sắp xếp theo tổng điểm, nếu bằng thì lấy bài mới hơn
+
+        //     // Final sorting
         //     if (scoreA !== scoreB) {
         //         return scoreB - scoreA;
         //     }
         //     return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
         // });
-        faqPosts.sort((a, b) => {
-            let scoreA = 0;
-            let scoreB = 0;
-
-            // Category scoring
-            const getCategoryScore = (post, slug) => {
-                let score = 0;
-                if (post.primary_tag && post.primary_tag.slug.toLowerCase() === slug) score += 100;
-                if (post.tags.some(tag => tag.slug.toLowerCase() === slug)) score += 50;
-                return score;
-            };
-            
-            if (targetSlugForFilter) {
-                scoreA += getCategoryScore(a, targetSlugForFilter);
-                scoreB += getCategoryScore(b, targetSlugForFilter);
-            }
-
-            // Keyword relevance scoring
-            const checkKeywordRelevance = (post, rawKeyword) => {
-                let postScore = 0;
-                const keyword = normalizeText(rawKeyword);
-                const title = normalizeText(post.title || '');
-                const htmlContent = normalizeText(post.html || '');
-                const excerpt = normalizeText(post.custom_excerpt || post.excerpt || '');
-                const tags = (post.tags || []).map(tag => normalizeText(tag.name));
-
-                // Chia từ khóa thành các từ riêng lẻ để tìm kiếm chính xác hơn
-                const keywords = keyword.split(/\s+/).filter(w => w.length > 2); // Chỉ xét từ có 3 ký tự trở lên
-
-                // 1. Khớp chính xác tiêu đề
-                if (title === keyword) postScore += 50; // Ưu tiên rất cao nếu tiêu đề khớp chính xác
-
-                // 2. Kiểm tra sự xuất hiện của từng từ khóa
-                keywords.forEach(kw => {
-                    if (title.includes(kw)) postScore += 15; // Mỗi từ trong tiêu đề
-                    if (excerpt.includes(kw)) postScore += 10; // Mỗi từ trong excerpt
-                    if (htmlContent.includes(kw)) postScore += 3; // Giảm trọng số cho nội dung HTML lớn
-                    if (tags.some(tag => tag.includes(kw))) postScore += 8; // Mỗi từ trong tags
-                });
-
-                // 3. Khớp cụm từ trong tiêu đề hoặc excerpt (quan trọng hơn)
-                if (title.includes(keyword)) postScore += 20; // Nếu cả cụm từ có trong tiêu đề
-                if (excerpt.includes(keyword)) postScore += 15; // Nếu cả cụm từ có trong excerpt
-
-                // 4. Ưu tiên bài viết mới hơn nếu điểm tương đồng bằng nhau (sẽ được xử lý sau)
-
-                return postScore;
-            };
-
-
-            if (keyword) {
-                scoreA += checkKeywordRelevance(a, keyword);
-                scoreB += checkKeywordRelevance(b, keyword);
-            }
-
-
-            // Final sorting
-            if (scoreA !== scoreB) {
-                return scoreB - scoreA;
-            }
-            return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
-        });
-        // faqPosts.sort((a, b) => {
-        //     let scoreA = 0;
-        //     let scoreB = 0;
-
-        //     // Hàm chuẩn hóa bỏ dấu và chữ hoa
-        //     const normalizeText = (text) =>
-        //         text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-        //     // Ưu tiên điểm nếu có category
-        //     const getCategoryScore = (post, slug) => {
-        //         // console.log("post:",post)
-        //         let score = 0;
-        //         if (post.primary_tag && post.primary_tag.slug.toLowerCase() === slug) score += 100;
-        //         if (post.tags.some(tag => tag.slug.toLowerCase() === slug)) score += 50;
-        //         return score;
-        //     };
-
-        //     if (targetSlugForFilter) {
-        //         scoreA += getCategoryScore(a, targetSlugForFilter);
-        //         scoreB += getCategoryScore(b, targetSlugForFilter);
-        //     }
-
-        //     // So sánh chỉ dựa vào title có chứa toàn bộ cụm từ keyword (đã normalize)
-        //     if (keyword) {
-        //         const keywordNormalized = normalizeText(keyword);
-        //         // console.log(`\n🔍 DEBUG TOÀN BỘ BÀI VIẾT VỚI TỪ KHÓA: "${keyword}"\n`);
-        //         const titleA = normalizeText(a.title || '');
-        //         const titleB = normalizeText(b.title || '');
-
-        //         if (titleA.includes(keywordNormalized)) scoreA += 1000;
-        //         if (titleB.includes(keywordNormalized)) scoreB += 1000;
-        //     }
-        //     // console.log(`[SCORE A] "${a.title}" → ${scoreA}`);
-        //     // console.log(`[SCORE B] "${b.title}" → ${scoreB}`);
-        //     // Ưu tiên bài điểm cao hơn, nếu bằng thì bài mới hơn
-        //     if (scoreA !== scoreB) return scoreB - scoreA;
-        //     return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
-        // });
-
-        
+        console.log("Sorted FAQ posts:", sortedPosts.map(p => p.title));
 
         if (faqPosts.length === 0) {
             return { 
@@ -1266,30 +1184,31 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
         };
 
         // Enhanced image extraction
-        const extractImagesFromHtml = (htmlContent) => {
-            const $ = cheerio.load(htmlContent);
-            const images = [];
+        // const extractImagesFromHtml = (htmlContent) => {
+        //     const $ = cheerio.load(htmlContent);
+        //     const images = [];
             
-            $('img').each((i, img) => {
-                const $img = $(img);
-                const src = $img.attr('src');
-                const alt = $img.attr('alt') || `Hình ảnh ${i + 1}`;
+        //     $('img').each((i, img) => {
+        //         const $img = $(img);
+        //         const src = $img.attr('src');
+        //         const alt = $img.attr('alt') || `Hình ảnh ${i + 1}`;
                 
-                if (src && src.startsWith('http')) {
-                    images.push({ url: src, alt });
-                }
-            });
+        //         if (src && src.startsWith('http')) {
+        //             images.push({ url: src, alt });
+        //         }
+        //     });
             
-            return images;
-        };
+        //     return images;
+        // };
 
         // Generate enhanced summary
         let finalSummaryText = (lang === 'vi') 
-            ? "**Dưới đây là thông tin và hướng dẫn từ Nami Exchange:**\n\n" 
-            : "**Here is the information and guide from Nami Exchange:**\n\n";
+            ? "**Dưới đây là thông tin và hướng dẫn từ Nami Exchange:**\n" 
+            : "**Here is the information and guide from Nami Exchange:**\n";
 
         const maxArticlesToSummarize = 3;
-        const postsToSummarize = faqPosts.slice(0, Math.min(faqPosts.length, maxArticlesToSummarize));
+        const postsToSummarize = sortedPosts.slice(0, Math.min(sortedPosts.length, maxArticlesToSummarize));
+
         
         let allLinks = [];
         let allImages = [];
@@ -1303,9 +1222,11 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
             finalSummaryText += `### ${post.title}\n\n`;
             
             // Add post excerpt if available
-            if (post.custom_excerpt || post.excerpt) {
-                finalSummaryText += `*${post.custom_excerpt || post.excerpt}*\n\n`;
+            const excerpt = (post.custom_excerpt || post.excerpt || '').trim();
+                if (excerpt.length > 10) {
+                    finalSummaryText += `**${excerpt}*\n\n`;
             }
+
 
             // Extract and format content
             const extractedContent = extractContentFromHtml(post.html, lang);
@@ -1354,10 +1275,10 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
 
             // Extract links and images
             const postLinks = extractLinksFromHtml(post.html);
-            const postImages = extractImagesFromHtml(post.html);
+            // const postImages = extractImagesFromHtml(post.html);
             
             allLinks.push(...postLinks);
-            allImages.push(...postImages);
+            // allImages.push(...postImages);
 
             // Add link to the full article
             finalSummaryText += `[📖 Đọc bài viết đầy đủ](${postUrl})\n\n`;
@@ -1399,16 +1320,7 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
             finalSummaryText += `• [${title}](${webUrlFaq}${link.slug})\n`;
         });
 
-        // Add images section if available
-        if (allImages.length > 0) {
-            finalSummaryText += (lang === 'vi') 
-                ? "\n## 🖼️ Hình ảnh minh họa\n\n" 
-                : "\n## 🖼️ Illustrations\n\n";
-            
-            allImages.slice(0, 5).forEach((img, index) => {
-                finalSummaryText += `• [${img.alt}](${img.url})\n`;
-            });
-        }
+        
 
         // Add footer
         finalSummaryText += (lang === 'vi') 
@@ -1417,11 +1329,23 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
         
         finalSummaryText += `[🏠 ${lang === 'vi' ? 'Trang chủ FAQ' : 'FAQ Homepage'}](${webUrlFaq})`;
 
+        // const uniqueLines = new Set();
+        // const cleanedParagraphs = finalSummaryText
+        // .split('\n')
+        // .map(line => line.trim())
+        // .filter(line => {
+        //     if (!line || line === '•') return false;
+        //     const isDuplicate = uniqueLines.has(line);
+        //     if (!isDuplicate) uniqueLines.add(line);
+        //     return !isDuplicate;
+        // });
+
+
         return {
             source: "Nami FAQ",
             summary: finalSummaryText,
             posts_count: postsToSummarize.length,
-            total_found: faqPosts.length
+            total_found: sortedPosts.length
         };
 
     } catch (error) {
@@ -1433,16 +1357,26 @@ async function get_nami_onboarding_guide(lang = 'vi', keyword = '', category_slu
         };
     }
 }
+
 // get_nami_onboarding_guide('vi', 'mã giới thiệu', 'chuc-nang-tai-khoan').then(r=> console.log(r))
 
 // keyword: 'mã giới thiệu', category_slug: 'chuc-nang-tai-khoan'
-const availableFunctions = {
-    get_nami_token_info,
-    get_nami_blog_posts,
-    get_user_portfolio_performance,
-    create_nami_alert,
-    update_nami_notification_setting,
-    get_nami_onboarding_guide
-};
-
-module.exports = availableFunctions;``
+// const availableFunctions = {
+//     get_nami_token_info,
+//     get_nami_blog_posts,
+//     get_user_portfolio_performance,
+//     create_nami_alert,
+//     update_nami_notification_setting,
+//     get_nami_onboarding_guide
+// };
+// get_user_portfolio_performance('en').then(r=>console.log(r))
+// get_nami_onboarding_guide('vi', 'KYC', 'chuc-nang-tai-khoan').then(r=>console.log(r))
+// get_nami_onboarding_guide('vi','daily Stacking','daily-staking-en').then(r=>console.log(r))
+module.exports = {
+  get_nami_token_info,
+  get_user_portfolio_performance,
+  get_nami_blog_posts,
+  get_nami_onboarding_guide,
+  create_nami_alert,
+  update_nami_notification_setting
+ };

@@ -1,12 +1,4 @@
-// tools.js (có thể tinh chỉnh mô tả)
-// // import { Type } from '@google/genai';
-// const {Type, FunctionCallingConfigMode } = require('@google/genai')
-// const toolConfig = {
-//   functionCallingConfig: {
-//     mode: FunctionCallingConfigMode.ANY,
-//     allowedFunctionNames: ['get_nami_token_info','get_nami_blog_posts' ]
-//   }
-// };
+
 
 const tools = [
   {
