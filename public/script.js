@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Connection status check
     function checkConnection() {
-        fetch('http://localhost:3000/health', { 
+        fetch('/health', { 
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm) {
             // user bấm “Không” thì vẫn gọi /chat để AI reply bình thường
             try {
-            const res = await fetch('http://localhost:3000/chat', {
+            const res = await fetch('/chat', {
                 method: 'POST',
                 headers: { 'Content-Type':'application/json' },
                 body: JSON.stringify({ message: "không" })
@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 100000); // 1m timeout
 
-            const response = await fetch('http://localhost:3000/chat', {
+            const response = await fetch('/chat', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
