@@ -250,8 +250,8 @@ const tools = [
           return {
             ...base,
             confirmSupport: true,
-            message_vi: "Mình hiểu điều này có thể khiến bạn thấy choáng ngợp.\n• Nếu bạn muốn, mình có thể kết nối bạn với đội ngũ hỗ trợ của Nami, hoặc chia sẻ một vài mẹo giúp bạn quản lý rủi ro tốt hơn. \n\n**Mình luôn ở đây để đồng hành cùng bạn!**",
-            message_en: "I understand this can be overwhelming. If you want, I can connect you to Nami's support team, or share some tips to help you manage your risk better. I'm here to help you."
+            message_vi: "Mình hiểu điều này có thể khiến bạn thấy choáng ngợp.\n\n• Nếu bạn muốn, mình có thể kết nối bạn với đội ngũ hỗ trợ của Nami, hoặc chia sẻ một vài mẹo giúp bạn quản lý rủi ro tốt hơn. \n\n**Mình luôn ở đây để đồng hành cùng bạn!**",
+            message_en: "I understand this can be overwhelming.\n\n If you want, I can connect you to Nami's support team, or share some tips to help you manage your risk better. \n\nI'm here to help you."
           };
         } else {
           return {
