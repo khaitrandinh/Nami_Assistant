@@ -65,19 +65,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function addMessage(sender, text, isError = false) {
+    function addMessage(sender, text, isError = false, isRawHTML = false) {
         const msg = document.createElement('div');
         msg.className = `message ${sender}${isError ? ' error-message' : ''}`;
-        const content = text ?? '';
-        if (typeof marked !== 'undefined' && content) {
+
+        if (isRawHTML) {
+            msg.innerHTML = text;
+        } else if (typeof marked !== 'undefined' && text) {
             try {
-                const parsed = marked.parse(content);
+                const parsed = marked.parse(text);
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = parsed;
+
                 tempDiv.querySelectorAll('a').forEach(link => {
                     const href = link.getAttribute('href');
-                    const text = link.textContent.trim();
-                    if (text === 'Xem hình ảnh' && href?.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)) {
+                    const linkText = link.textContent.trim();
+
+                    if (linkText === 'Xem hình ảnh' && href?.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)) {
                         const img = new Image();
                         img.src = href;
                         img.alt = 'Hình ảnh minh họa';
@@ -95,16 +99,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         link.rel = 'noopener noreferrer';
                     }
                 });
+
                 msg.innerHTML = tempDiv.innerHTML;
             } catch {
-                msg.textContent = content;
+                msg.textContent = text;
             }
         } else {
-            msg.textContent = content;
+            msg.textContent = text ?? '';
         }
+
         chatMessages.appendChild(msg);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
+
 
     function toggleInputs(disabled) {
         userInput.disabled = disabled;
@@ -124,7 +131,17 @@ document.addEventListener('DOMContentLoaded', () => {
         addMessage('user', question);
         userInput.value = '';
         toggleInputs(true);
-        addMessage('ai', '<span class="loading">Đang suy nghĩ...</span>');
+        addMessage('ai', `
+                    <div class="loading-wrapper" id="loading-dots">
+                        Thinking
+                        <span class="loading-dots">
+                        <span>.</span><span>.</span><span>.</span>
+                        </span>
+                    </div>
+                    `, false, true);
+
+
+
 
         try {
             const controller = new AbortController();
@@ -136,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 signal: controller.signal
             });
             clearTimeout(timeout);
-            chatMessages.querySelector('.loading')?.closest('.message')?.remove();
+            chatMessages.querySelector('.loading-dots')?.closest('.message')?.remove();
 
             if (!res.ok) throw new Error();
 

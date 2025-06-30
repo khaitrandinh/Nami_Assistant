@@ -176,7 +176,7 @@ const tools = [
 
 
         // console.log(`→ Found ${docs.length} documents for query: "${query}"`);
-        console.log(`→ Documents: ${docs.map(d => d.metadata.snippet).join(', ')}`);
+        // console.log(`→ Documents: ${docs.map(d => d.metadata.snippet).join(', ')}`);
         if (!docs.length) {
           return `Không tìm thấy kết quả cho "${query}" trên Binance Academy.`;
         }
