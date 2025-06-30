@@ -2,6 +2,7 @@
 const axios = require('axios');
 // require('dotenv').config({path: '../.env'});
 require('dotenv').config();
+
 const { convert } = require('html-to-text');
 const cheerio = require('cheerio');
 const Fuse = require('fuse.js');

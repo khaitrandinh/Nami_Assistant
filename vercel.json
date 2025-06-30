@@ -16,7 +16,11 @@
       "dest": "server.js"
     },
     {
-      "src": "/ask-assistant",
+      "src": "/chat",
+      "dest": "server.js"
+    },
+    {
+      "src": "/health",
       "dest": "server.js"
     },
     {
