@@ -31,7 +31,7 @@ function detectLangAndCategory(tags) {
   return { lang, category_slug };
 }
 
-async function main() {
+async function namiFaq() {
   const { data } = await axios.get(GHOST_API_URL);
   const posts = data.posts || [];
   const index = pinecone.index(process.env.PINECONE_INDEX_NAME);
@@ -101,3 +101,8 @@ async function main() {
 
 
 main().catch(console.error);
+module.exports = async function namiFaq() {
+  // Code lấy/crawl/build của bạn ở đây.
+  // Trả về chuỗi hoặc object
+  return 'Rebuild OK!'; // Ví dụ trả về string đơn giản
+};

@@ -151,3 +151,8 @@ main().catch(err => {
   console.error('💥 Fatal:', err);
   process.exit(1);
 });
+module.exports = async function rebuildAcademyKB() {
+  // Code lấy/crawl/build của bạn ở đây.
+  // Trả về chuỗi hoặc object
+  return 'Rebuild OK!'; // Ví dụ trả về string đơn giản
+};
