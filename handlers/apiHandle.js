@@ -4,8 +4,8 @@ const axios = require('axios');
 require('dotenv').config();
 
 const { convert } = require('html-to-text');
-const cheerio = require('cheerio');
-const Fuse = require('fuse.js');
+// const cheerio = require('cheerio');
+// const Fuse = require('fuse.js');
 
 const NAMI_BLOG_API_BASE_URL = process.env.NAMI_BLOG_API_BASE_URL;
 const NAMI_BLOG_API_KEY = process.env.NAMI_BLOG_API_KEY; 
@@ -1373,6 +1373,9 @@ async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', pr
 // get_user_portfolio_performance('en').then(r=>console.log(r))
 // get_nami_onboarding_guide('vi', 'KYC', 'chuc-nang-tai-khoan').then(r=>console.log(r))
 // get_nami_onboarding_guide('vi','daily Stacking','daily-staking-en').then(r=>console.log(r))
+
+
+
 module.exports = {
   get_nami_token_info,
   get_user_portfolio_performance,

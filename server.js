@@ -52,7 +52,21 @@ app.get('/health', (req, res) => {
 //     }
 // });
 
+app.get("/api/rebuild-kb", (req, res) => {
+  exec("node utils/rebuild-academy-kb.js", (error, stdout, stderr) => {
+    if (error) return res.status(500).send("Lỗi: " + error.message);
+    if (stderr) console.warn(stderr);
+    res.send("Rebuild OK:\n" + stdout);
+  });
+});
 
+app.get("/api/namiFaq", (req, res) => {
+  exec("node utils/namiFaq.js", (error, stdout, stderr) => {
+    if (error) return res.status(500).send("Lỗi: " + error.message);
+    if (stderr) console.warn(stderr);
+    res.send("Rebuild OK:\n" + stdout);
+  });
+});
 app.post("/chat", async (req, res) => {
     const userInput = req.body.message;
 
