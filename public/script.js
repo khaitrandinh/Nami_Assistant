@@ -103,10 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-
-  
-
     // Check connection every 10 seconds (reduced from 30s for better UX)
     setInterval(checkConnection, 10000);
     checkConnection();
