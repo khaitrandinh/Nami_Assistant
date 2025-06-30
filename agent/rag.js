@@ -20,8 +20,10 @@ async function getAcademyRAG() {
 
   // Build vectorstore từ index có sẵn
   const vectorstore = await PineconeStore.fromExistingIndex(
-    embeddings,
-    { pineconeIndex, textKey: 'text' }
+    embeddings, 
+    { namespace: 'binance-academy-vi',
+      pineconeIndex, 
+      textKey: 'text' }
   );
 
 

@@ -32,6 +32,7 @@ const prompt = ChatPromptTemplate.fromMessages([
         → Trả về JSON string từ API rồi tóm tắt ngắn gọn.
 
         2. **get_nami_blog_posts( query_type, keyword, lang, month, year )**  
+        
         Khi user hỏi “Tin tức Nami”, “Khuyến mãi?”, “Bài blog tháng 5/2025?”, “Cho tôi các bài viết hot”…  
         → Sau khi có kết quả JSON, liệt kê theo số thứ tự: tiêu đề, ngày, tóm tắt ngắn, [link].
 
@@ -47,19 +48,10 @@ const prompt = ChatPromptTemplate.fromMessages([
         5. **update_nami_notification_setting( useDeviceNoti, useEmailNoti, lang )**  
         Khi user đồng ý bật notification → gọi tool này để bật theo lựa chọn.
 
-        6. **get_nami_onboarding_guide( lang, keyword, category_slug )**  
-        - Đây la tool hướng dẫn sử dụng các sản phẩm của Nami Exchange. Chú ý: CHỉ lấy các hướng dẫn có sẵn trong tool này. và tool này KHÔNG cung cấp các bài học.
-
-        Khi user hỏi “Cách KYC?”, “Làm sao đăng ký ví?”, “Hướng dẫn nạp tiền”…  
-        → Phân tích câu hỏi, chọn đúng 'category_slug' (hoặc null), truyền keyword, trả về bước–2–bước.
-
-        Có thể sử dụng các slug:  
-        'huong-dan-chung', 'dang-ky-tai-khoan-va-mat-khau', 'chuc-nang-tai-khoan',  
-        'nap-rut-tien-ma-hoa', 'giao-dich-spot', 'giao-dich-futures', 'quy-doi',  
-        'daily-staking', 'token-nami', 'hop-tac-kinh-doanh',  
-        'tutorials', 'register-account-and-password', 'account-functions',  
-        'crypto-deposit-withdrawal', 'spot-trading', 'futures-trading', 'swap',  
-        'daily-staking-en', 'nami-token', 'business-cooperation'.
+        6.  **get_nami_faq_guide(query, lang)**  
+            When user asks any question related to platform policies, how-to, FAQ, features, or detailed usage (“How to transfer?”, “What is withdrawal fee?”, “Account verification issues?”...)  
+            → Call this tool, passing user question as 'query' and detected language as 'lang'.  
+            → Summarize the top results in bullet points, include title & link if available.
 
         7. **get_binance_knowledge( query )**  
         Khi user muốn kiến thức cơ bản trên Binance Academy (“ETF là gì?”, “Học về NFT”,“Tôi muốn tìm hiểu về ...”,…).  
@@ -84,7 +76,7 @@ const prompt = ChatPromptTemplate.fromMessages([
   new  MessagesPlaceholder("agent_scratchpad")
 ]);
 
-
+// Khi gọi tool get_nami_blog_posts LUÔN LUÔN truyền đủ các field: query_type, keyword (nếu không có thì để rỗng), lang, month, year (nếu không có thì null)
 async function createAgentExecutor() {
     const tools = await buildTools();
     const agent = await createToolCallingAgent({
@@ -101,7 +93,9 @@ async function createAgentExecutor() {
 
     return executor;
 }
-async function runAgentWithMetadata(userInput) {
+async function runAgentWithMetadata(userInput,detectedLang = 'vi') {
+    console.log("Running agent with input:", userInput);
+    console.log("Detected language:", detectedLang);
     const executor = await createAgentExecutor();
     
     // Store tool results để có thể truy cập sau
@@ -122,7 +116,8 @@ async function runAgentWithMetadata(userInput) {
     });
     
     const result = await executor.invoke({
-        input: userInput
+        input: userInput,
+        lang: detectedLang 
     });
     return {
         response: {

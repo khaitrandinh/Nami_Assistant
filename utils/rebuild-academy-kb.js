@@ -132,9 +132,7 @@ async function main() {
           }
         }));
 
-        await index.upsert(upsertData, {
-          namespace: 'binance-academy-vi'
-        });
+        await index.namespace('binance-academy-vi').upsert(upsertData);
         console.log(`✅ Indexed batch ${Math.floor(i / batchSize) + 1}`);
         await delay(500); // hạn chế vượt quota
       }

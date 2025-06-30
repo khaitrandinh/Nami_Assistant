@@ -62,16 +62,16 @@ app.post("/chat", async (req, res) => {
 
     try {
         const detectedLang = await detectLanguage(userInput);
-        // console.log(`Detected user language: ${detectedLang}`);
+        console.log(`Detected user language: ${detectedLang}`);
         
         // Sử dụng runAgentWithMetadata thay vì createAgentExecutor trực tiếp
-        const result = await runAgentWithMetadata(userInput);
+        const result = await runAgentWithMetadata(userInput, detectedLang);
         
         // console.log("Agent result:", result.response.tool_calls);
         // const emotionData1 = result.metadata?.toolResults?.emotion_support;
         // const emotionData2 = result.metadata?.toolResults?.['emotion_support'];
         // Extract emotion support data nếu có
-        const emotionData = result.metadata?.toolResults?.emotion_support;
+        // const emotionData = result.metadata?.toolResults?.emotion_support;
         // console.log("Emotion support data:", emotionData);
         // Prepare response
         const response = {
@@ -93,7 +93,7 @@ app.post("/chat", async (req, res) => {
         //         adjustedScore: emotionData.adjustedScore
         //     };
         // }
-        console.log("Agent result:", response);
+        // console.log("Agent result:", response);
         return res.json(response);
         
     } catch (err) {

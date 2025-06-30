@@ -21,7 +21,7 @@ async function getNamiFaqRetriever(lang = 'vi') {
 
   return vectorstore.asRetriever({
     searchType: 'mmr',
-    searchTypeOptions: { fetchK: 100, k: 7, lambda: 0.7 }
+    searchTypeOptions: { fetchK: 100, k: 10, lambda: 0.7 }
   });
 }
 
