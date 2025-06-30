@@ -1,6 +1,7 @@
 require('dotenv').config({ path: '../.env' });
 const cheerio = require('cheerio');
 const axios = require('axios');
+const { RecursiveCharacterTextSplitter } = require('langchain/text_splitter');
 const { GoogleGenerativeAIEmbeddings } = require('@langchain/google-genai');
 const { Pinecone } = require('@pinecone-database/pinecone');
 
@@ -8,7 +9,7 @@ const BASE_URL = 'https://academy.binance.com';
 const LISTING_URL = `${BASE_URL}/vi/articles?difficulties=beginner`;
 const MAX_PAGES = 3;
 
-// helper
+// Helper functions
 const cleanText = text =>
   text.replace(/\s+/g, ' ').replace(/\n+/g, '\n').trim();
 
@@ -16,19 +17,22 @@ const generateId = url =>
   url.replace(BASE_URL, '').replace(/[^a-zA-Z0-9]/g, '_');
 
 async function main() {
-  // 1. Init Pinecone
   const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
   const index = pinecone.index(process.env.PINECONE_INDEX_NAME);
-
-  // 2. Init embeddings
   const embeddings = new GoogleGenerativeAIEmbeddings({
-    apiKey: process.env.GOOGLE_API_KEY
+    apiKey: process.env.GOOGLE_API_KEY,
+    model: 'text-embedding-004'
+  });
+
+  const textSplitter = new RecursiveCharacterTextSplitter({
+    chunkSize: 1000, // khoảng 400–500 từ
+    chunkOverlap: 100, // giữ ngữ cảnh giữa các chunk
   });
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
   const articleUrls = new Set();
 
-  // 3. Crawl URL danh sách
+  // Crawl URL danh sách
   for (let page = 1; page <= MAX_PAGES; page++) {
     try {
       const url = `${LISTING_URL}&page=${page}`;
@@ -58,32 +62,18 @@ async function main() {
   }
 
   console.log(`\n📊 Total URLs: ${articleUrls.size}\n`);
-  let success = 0, fail = 0;
 
-  // 4. Xử lý từng bài
+  // Xử lý từng bài
   for (const url of articleUrls) {
     try {
       const documentId = generateId(url);
 
-      try {
-        const fetchRes = await index.fetch({ ids: [documentId] });
-        // Kiểm tra đúng cấu trúc response của Pinecone
-        if (fetchRes.records && Object.keys(fetchRes.records).length > 0) {
-          console.log(`↪️ Bỏ qua (đã có sẵn): ${url}`);
-          continue;
-        }
-      } catch (fetchError) {
-        // Nếu fetch lỗi, coi như chưa có và tiếp tục xử lý
-        console.log(`→ Checking existence failed, proceeding: ${documentId}`);
-      }
-      console.log(`⏳ Processing: ${url}`);
       const { data: rawHtml } = await axios.get(url, {
         timeout: 15000,
         headers: { 'User-Agent': 'Mozilla/5.0' }
       });
       const $ = cheerio.load(rawHtml);
 
-      // Title, description, keywords
       const title = cleanText($('h1').first().text() || 'Untitled');
       const description = cleanText(
         $('meta[name="description"]').attr('content') || ''
@@ -92,7 +82,6 @@ async function main() {
         $('meta[name="keywords"]').attr('content') || ''
       );
 
-      // Nội dung chính
       let content = '';
       const selectors = [
         'article .content',
@@ -117,43 +106,47 @@ async function main() {
           $('article').text() || $('main').text() || $('body').text()
         );
       }
-      const MAX_SNIPPET = 3000;
-      const snippet = content.slice(0, MAX_SNIPPET);
-      // Tạo metadata
-      const metadata = {
-        source: url,
-        title,
-        description,
-        keywords,
-        snippet,                      // chỉ 3 000 ký tự đầu
-        contentLength: content.length,
-        indexedAt: new Date().toISOString()
-      };
 
-      console.log(`→ Extracted content length: ${content.length} characters`);
+      // Chunk nội dung
+      const chunks = await textSplitter.splitText(content);
+      console.log(`→ Split into ${chunks.length} chunks`);
 
-      // Dùng embedDocuments cho mảng 1 phần tử
-      const [vector] = await embeddings.embedDocuments([content]);
+      // Upsert theo từng batch nhỏ
+      const batchSize = 10;
+      for (let i = 0; i < chunks.length; i += batchSize) {
+        const chunkBatch = chunks.slice(i, i + batchSize);
+        const vectors = await embeddings.embedDocuments(chunkBatch);
 
-      // Upsert
-      await index.upsert([
-        {
-          id: generateId(url),
+        const upsertData = vectors.map((vector, idx) => ({
+          id: `${documentId}_chunk${i + idx}`,
           values: vector,
-          metadata
-        }
-      ]);
+          metadata: {
+            source: url,
+            title,
+            description,
+            keywords,
+            text: chunkBatch[idx],
+            chunkNumber: i + idx,
+            chunkTotal: chunks.length,
+            indexedAt: new Date().toISOString()
+          }
+        }));
 
-      console.log(`✅ Indexed: ${title}`);
-      success++;
+        await index.upsert(upsertData, {
+          namespace: 'binance-academy-vi'
+        });
+        console.log(`✅ Indexed batch ${Math.floor(i / batchSize) + 1}`);
+        await delay(500); // hạn chế vượt quota
+      }
+
+      console.log(`🚀 Indexed article: ${title}`);
     } catch (err) {
       console.error(`❌ Error ${url}:`, err.message);
-      fail++;
     }
     await delay(1200);
   }
 
-  console.log(`\n🏁 Done! Success: ${success}, Fail: ${fail}`);
+  console.log(`\n🏁 Done indexing!`);
 }
 
 main().catch(err => {

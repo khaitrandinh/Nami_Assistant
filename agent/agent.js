@@ -48,6 +48,8 @@ const prompt = ChatPromptTemplate.fromMessages([
         Khi user đồng ý bật notification → gọi tool này để bật theo lựa chọn.
 
         6. **get_nami_onboarding_guide( lang, keyword, category_slug )**  
+        - Đây la tool hướng dẫn sử dụng các sản phẩm của Nami Exchange. Chú ý: CHỉ lấy các hướng dẫn có sẵn trong tool này. và tool này KHÔNG cung cấp các bài học.
+
         Khi user hỏi “Cách KYC?”, “Làm sao đăng ký ví?”, “Hướng dẫn nạp tiền”…  
         → Phân tích câu hỏi, chọn đúng 'category_slug' (hoặc null), truyền keyword, trả về bước–2–bước.
 
@@ -60,7 +62,7 @@ const prompt = ChatPromptTemplate.fromMessages([
         'daily-staking-en', 'nami-token', 'business-cooperation'.
 
         7. **get_binance_knowledge( query )**  
-        Khi user muốn kiến thức cơ bản trên Binance Academy (“ETF là gì?”, “Học về NFT”…).  
+        Khi user muốn kiến thức cơ bản trên Binance Academy (“ETF là gì?”, “Học về NFT”,“Tôi muốn tìm hiểu về ...”,…).  
         → Lấy docs qua RAG, tóm tắt, liệt kê link.
 
         8. **emotion_support( text )**  
