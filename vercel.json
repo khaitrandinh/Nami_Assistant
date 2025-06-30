@@ -1,32 +1,23 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
-    }
+    { "src": "server.js", "use": "@vercel/node" },
+    { "src": "public/**", "use": "@vercel/static" }
   ],
   "routes": [
+    { "src": "/api/.*", "dest": "server.js" },
+    { "src": "/chat", "dest": "server.js" },
+    { "src": "/health", "dest": "server.js" },
+    { "src": "/(.*)", "dest": "public/$1" }
+  ],
+  "cron": [
     {
-      "src": "/api/(.*)",
-      "dest": "server.js"
+      "path": "/api/rebuild-kb",
+      "schedule": "00 00 1 6 *"
     },
     {
-      "src": "/chat",
-      "dest": "server.js"
-    },
-    {
-      "src": "/health",
-      "dest": "server.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "public/$1"
+      "path": "/api/namiFaq",
+      "schedule": "00 00 1 6 *"
     }
   ]
-
 }
