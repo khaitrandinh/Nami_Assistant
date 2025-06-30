@@ -3,7 +3,7 @@ const cors = require("cors");
 const { createAgentExecutor, runAgentWithMetadata } = require("./agent/agent");
 require("dotenv").config();
 const detectLanguage = require("./utils/langDetect");
-
+const { exec } = require("child_process");
 
 const app = express();
 
