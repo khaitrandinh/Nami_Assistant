@@ -21,14 +21,15 @@ async function getAcademyRAG() {
   // Build vectorstore từ index có sẵn
   const vectorstore = await PineconeStore.fromExistingIndex(
     embeddings,
-    { pineconeIndex }
+    { pineconeIndex, textKey: 'text' }
   );
+
 
   const retriever = vectorstore.asRetriever({
       searchType: 'mmr',
       searchTypeOptions: { 
         fetchK: 100,      // Tăng lên để có nhiều candidate hơn
-        k: 10,           // Trả về 5 kết quả cuối cùng
+        k: 50,           // Trả về 5 kết quả cuối cùng
         lambda: 0.7     // Balance giữa relevance và diversity (0.5 = cân bằng)
       }
     });
