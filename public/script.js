@@ -102,14 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-
-
-
-  
-
     // Check connection every 10 seconds (reduced from 30s for better UX)
     setInterval(checkConnection, 10000);
-    checkConnection();
+    setTimeout(checkConnection(), 10000);
 
     function addMessage(sender, text, isError = false) {
         const messageElement = document.createElement('div');
