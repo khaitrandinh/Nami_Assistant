@@ -4,7 +4,7 @@ const { exec } = require("child_process");
 require('dotenv').config();
 // Schedule: mỗi ngày lúc 00:00 (giờ VN)
 // Chạy vào 14:15 ngày 1 tháng 1, 4, 7, 10 (tức là mỗi quý 1 lần)
-cron.schedule("00 00 1 1,4,7,10 *", () => {
+cron.schedule("00 00 1 6 *", () => {
   const now = new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
   console.log(`🔄 [${now}] Rebuild Binance Academy KB bắt đầu...`);
 

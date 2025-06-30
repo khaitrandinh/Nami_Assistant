@@ -9,15 +9,6 @@
     { "src": "/chat", "dest": "server.js" },
     { "src": "/health", "dest": "server.js" },
     { "src": "/(.*)", "dest": "public/$1" }
-  ],
-  "cron": [
-    {
-      "path": "/api/rebuild-kb",
-      "schedule": "00 00 1 6 *"
-    },
-    {
-      "path": "/api/namiFaq",
-      "schedule": "00 00 1 6 *"
-    }
   ]
+  
 }
