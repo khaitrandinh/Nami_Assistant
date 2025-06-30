@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleSupportAgree() {
-        addMessage('ai', '💡 <strong>Hướng dẫn:</strong><br>• Chuyển sang tab vừa mở<br>• Tìm biểu tượng chat/hỗ trợ<br>• Click và nhập "Thông tin bạn cần hỗ trợ."');
+        addMessage('ai', '💡 <strong>Hướng dẫn:</strong><br>• Chuyển sang tab vừa mở<br>• Tìm biểu tượng chat/hỗ trợ<br>• Click và nhập "Nội dung bạn cần hỗ trợ"');
         document.querySelectorAll(".support-buttons").forEach(el => el.remove());
         addMessage('ai', '✅ Cảm ơn bạn đã đồng ý hỗ trợ. Tôi sẽ mở trang hỗ trợ trong 3s.');
         setTimeout(() => window.open("https://test.nami.exchange/vi/support", "_blank")?.focus(), 3000);
@@ -65,19 +65,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function addMessage(sender, text, isError = false) {
+    function addMessage(sender, text, isError = false, isRawHTML = false) {
         const msg = document.createElement('div');
         msg.className = `message ${sender}${isError ? ' error-message' : ''}`;
-        const content = text ?? '';
-        if (typeof marked !== 'undefined' && content) {
+
+        if (isRawHTML) {
+            msg.innerHTML = text;
+        } else if (typeof marked !== 'undefined' && text) {
             try {
-                const parsed = marked.parse(content);
+                const parsed = marked.parse(text);
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = parsed;
+
                 tempDiv.querySelectorAll('a').forEach(link => {
                     const href = link.getAttribute('href');
-                    const text = link.textContent.trim();
-                    if (text === 'Xem hình ảnh' && href?.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)) {
+                    const linkText = link.textContent.trim();
+
+                    if (linkText === 'Xem hình ảnh' && href?.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)) {
                         const img = new Image();
                         img.src = href;
                         img.alt = 'Hình ảnh minh họa';
@@ -97,14 +101,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 msg.innerHTML = tempDiv.innerHTML;
             } catch {
-                msg.textContent = content;
+                msg.textContent = text;
             }
         } else {
-            msg.textContent = content;
+            msg.textContent = text ?? '';
         }
+
         chatMessages.appendChild(msg);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
+
 
     function toggleInputs(disabled) {
         userInput.disabled = disabled;
@@ -124,7 +130,14 @@ document.addEventListener('DOMContentLoaded', () => {
         addMessage('user', question);
         userInput.value = '';
         toggleInputs(true);
-        addMessage('ai', '<span class="loading">Đang suy nghĩ...</span>');
+        addMessage('ai', `
+                    <div class="loading-wrapper" id="loading-dots">
+                        Thinking
+                        <span class="loading-dots">
+                        <span>.</span><span>.</span><span>.</span>
+                        </span>
+                    </div>
+                    `, false, true);
 
         try {
             const controller = new AbortController();
@@ -136,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 signal: controller.signal
             });
             clearTimeout(timeout);
-            chatMessages.querySelector('.loading')?.closest('.message')?.remove();
+            chatMessages.querySelector('.loading-dots')?.closest('.message')?.remove();
 
             if (!res.ok) throw new Error();
 
@@ -187,5 +200,5 @@ document.addEventListener('DOMContentLoaded', () => {
     userInput.focus();
     setInterval(checkConnection, 10000);
     checkConnection();
-    addMessage('ai', '👋 **Chào bạn!** Tôi là AI Assistant của Nami Exchange.\n\nBạn có thể hỏi tôi về:\n• Thông tin về ví của bạn \n• Thông tin Token\n• Tin tức thị trường\n• Đặt Thông báo giá \n• Hướng dẫn sử dụng Nami exchange\n• Gợi ý một số bài viết, khóa học từ binance Academy   \n\nHãy đặt câu hỏi để bắt đầu! 🚀');
+    addMessage('ai', '👋 **Chào bạn!** Tôi là AI Assistant của Nami Exchange.\n\nBạn có thể hỏi tôi về:\n\n• Thông tin về ví của bạn \n\n• Thông tin Token\n\n• Tin tức thị trường\n\n• Đặt Thông báo giá \n\n• Hướng dẫn sử dụng Nami exchange\n\n• Gợi ý một số bài viết, khóa học từ binance Academy   \n\nHãy đặt câu hỏi để bắt đầu! 🚀');
 });

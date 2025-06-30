@@ -143,16 +143,48 @@ body {
     animation: loadingDot 1.4s infinite ease-in-out both;
 }
 
-@keyframes loadingDot {
-    0%, 80%, 100% {
-        transform: scale(0);
-        opacity: 0.5;
-    }
-    40% {
-        transform: scale(1);
-        opacity: 1;
-    }
+.loading-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 18px;
+  color: #ffffff;
+  padding: 10px;
 }
+
+.loading-dots {
+  display: flex;
+  gap: 4px;
+  color: #4caf50;
+}
+
+.loading-dots span {
+  animation: loadingDot 1.4s infinite ease-in-out;
+  font-size: 20px;
+}
+
+.loading-dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+.loading-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.loading-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes loadingDot {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+
 
 /* Markdown styling - Improved readability */
 .message h1, .message h2, .message h3, .message h4, .message h5, .message h6 {

@@ -11,6 +11,7 @@ const {
     get_nami_onboarding_guide,
 } = require("../handlers/apiHandle");
 const { getAcademyRAG } = require("./rag");
+const { getNamiFaqRetriever } = require("./rag_nami_faq");
 const Sentiment = require('sentiment');
 const sentiment = new Sentiment();
 
@@ -44,7 +45,7 @@ const tools = [
         schema: z.object({
             query_type: z.enum(["latest", "events", "new_listing", "delisting", "trending", "news"]).optional().default("latest").describe("Loại thông tin blog/tin tức mà người dùng muốn tìm. Có thể là 'latest' (mới nhất), 'events' (sự kiện, giải đấu, chiến dịch, khuyến mãi), 'new_listing' (niêm yết token mới), 'delisting' (hủy niêm yết token), 'trending' (xu hướng/hot topic), hoặc 'news' (tin tức chung). Mặc định là 'latest' nếu không rõ."),
             keyword: z.string().optional().describe("Từ khóa tìm kiếm cụ thể trong bài viết. Nếu không có từ khóa, sẽ lấy tất cả bài viết mới nhất."),
-            lang: z.enum(["vi", "en"]).optional().default("vi"),
+            lang: z.enum(["vi", "en"]),
             month: z.number().optional(),
             year: z.number().optional().describe("Năm của bài đăng (ví dụ: 2024, 2025). CỰC KỲ QUAN TRỌNG: LUÔN LUÔN TRÍCH XUẤT NĂM nếu người dùng hỏi về một năm cụ thể."),
         }),
@@ -130,39 +131,64 @@ const tools = [
     }),
 
     new DynamicStructuredTool({
-        name: "get_nami_onboarding_guide",
-        description: "Cung cấp hướng dẫn từng bước cho người dùng mới bắt đầu sử dụng Nami Exchange, bao gồm đăng ký tài khoản, hoàn tất KYC, nạp tiền vào ví và thực hiện giao dịch đầu tiên. Sử dụng hàm này khi người dùng hỏi về 'bắt đầu', 'hướng dẫn', 'tải app xong', 'KYC', 'tạo ví', 'làm gì tiếp theo', 'làm quen app' hoặc các hướng dẫn cụ thể về onboarding. Có thể lọc theo danh mục cụ thể hoặc từ khóa chi tiết. **QUAN TRỌNG: Khi gọi hàm này, bạn PHẢI phân tích câu hỏi của người dùng để xác định `category_slug` phù hợp trong danh sách sau và truyền vào hàm. Nếu không tìm thấy `category_slug` cụ thể, bạn có thể để `category_slug` là null. TRÍCH XUẤT TỪ KHÓA chi tiết từ câu hỏi của họ để truyền vào tham số `keyword`.**",
+        name: "get_nami_faq_guide",
+        description: "Deep-search FAQs Nami Exchange (vi/en), trả về tóm tắt markdown + metadata. Dùng cho mọi câu hỏi kiến thức, thao tác, quy định trên Nami.",
         schema: z.object({
-            lang: z.enum(["vi", "en"]).optional().default("vi"),
-            keyword: z.string().optional(),
-            category_slug: z.enum([
-                'huong-dan-chung', // map to faq-vi-huong-dan-chung
-                'dang-ky-tai-khoan-va-mat-khau', // map to faq-vi-dang-ky-tai-khoan-va-mat-khau
-                'chuc-nang-tai-khoan', // map to faq-vi-chuc-nang-tai-khoan
-                'nap-rut-tien-ma-hoa', // map to faq-vi-nap-rut-tien-ma-hoa
-                'giao-dich-spot', // map to faq-vi-giao-dich-spot
-                'giao-dich-futures', // map to faq-vi-giao-dich-futures
-                'quy-doi', // map to faq-vi-quy-doi
-                'daily-staking', // map to faq-vi-daily-staking
-                'token-nami', // map to faq-vi-token-nami
-                'hop-tac-kinh-doanh', // map to faq-vi-hop-tac-kinh-doanh
-                'tutorials', // map to faq-en-tutorials
-                'register-account-and-password', // map to faq-en-register-account-and-password
-                'account-functions', // map to faq-en-account-functions
-                'crypto-deposit-withdrawal', // map to faq-en-crypto-deposit-withdrawal
-                'spot-trading', // map to faq-en-spot-trading
-                'futures-trading', // map to faq-en-futures-trading
-                'swap', // map to faq-en-swap
-                'daily-staking-en', // map to faq-en-daily-staking
-                'nami-token', // map to faq-en-nami-token
-                'business-cooperation' // map to faq-en-business-cooperation
-              ]).optional().describe("Slug của danh mục FAQ mà người dùng muốn tìm hướng dẫn. PHẢI chọn một trong các slug sau nếu câu hỏi của người dùng khớp với một danh mục cụ thể (cả tiếng Việt và tiếng Anh): 'huong-dan-chung', 'dang-ky-tai-khoan-va-mat-khau', 'chuc-nang-tai-khoan', 'nap-rut-tien-ma-hoa', 'giao-dich-spot', 'giao-dich-futures', 'quy-doi', 'daily-staking', 'token-nami', 'hop-tac-kinh-doanh', 'tutorials', 'register-account-and-password', 'account-functions', 'crypto-deposit-withdrawal', 'spot-trading', 'futures-trading', 'swap', 'daily-staking-en', 'nami-token', 'business-cooperation'."),
+          query: z.string().describe("Câu hỏi về hướng dẫn, quy định, thao tác Nami Exchange (bất kỳ lĩnh vực nào)"),
+          lang: z.enum(["vi", "en"]).default("vi")
         }),
-        func: async ({ lang, keyword, category_slug }) => {
-            const result = await get_nami_onboarding_guide(lang, keyword, category_slug);
-            return JSON.stringify(result);
-        },
-    }),
+        func: async ({ query, lang }) => {
+          const retriever = await getNamiFaqRetriever(lang);
+          const docs = await retriever.getRelevantDocuments(query);
+
+          if (!docs.length) {
+            return {
+              error: (lang === "vi")
+                ? `Không tìm thấy nội dung phù hợp với “${query}”.`
+                : `No relevant content found for “${query}”.`
+            };
+          }
+
+          // Chain tóm tắt các chunk liên quan
+          const summary = await summarizationChain.call({
+            input_documents: docs,
+            question: query
+          });
+
+          // Gom metadata bài
+          const articles = [];
+          const slugs = new Set();
+          docs.forEach(doc => {
+            const meta = doc.metadata || {};
+            if (!slugs.has(meta.slug)) {
+              articles.push({
+                title: meta.title,
+                url: meta.url,
+                slug: meta.slug,
+                category_slug: meta.category_slug,
+                published_at: meta.published_at,
+                excerpt: meta.excerpt,
+                tags: meta.tags,
+              });
+              slugs.add(meta.slug);
+            }
+          });
+
+          // Gom links để gợi ý đọc thêm
+          const links = articles.map(a =>
+            `• [${a.title}](${a.url})`
+          ).join('\n');
+
+          // Kết quả đầy đủ để dễ dùng cho cả chat và UI
+          return {
+            source: "Nami FAQ",
+            summary: summary.text.trim(),
+            articles_count: articles.length,
+            articles: articles,
+            links_markdown: links
+          };
+        }
+      }),
     new DynamicStructuredTool({
       name: 'get_binance_knowledge',
       description: 'Deep‐search RAG trên Binance Academy: tóm tắt nội dung và cung cấp link.',
@@ -176,7 +202,7 @@ const tools = [
 
 
         // console.log(`→ Found ${docs.length} documents for query: "${query}"`);
-        console.log(`→ Documents: ${docs.map(d => d.metadata.snippet).join(', ')}`);
+        // console.log(`→ Documents: ${docs.map(d => d.metadata.snippet).join(', ')}`);
         if (!docs.length) {
           return `Không tìm thấy kết quả cho "${query}" trên Binance Academy.`;
         }
@@ -250,8 +276,8 @@ const tools = [
           return {
             ...base,
             confirmSupport: true,
-            message_vi: "Mình hiểu điều này có thể khiến bạn thấy choáng ngợp.\n• Nếu bạn muốn, mình có thể kết nối bạn với đội ngũ hỗ trợ của Nami, hoặc chia sẻ một vài mẹo giúp bạn quản lý rủi ro tốt hơn. \n\n**Mình luôn ở đây để đồng hành cùng bạn!**",
-            message_en: "I understand this can be overwhelming. If you want, I can connect you to Nami's support team, or share some tips to help you manage your risk better. I'm here to help you."
+            message_vi: "Mình hiểu điều này có thể khiến bạn thấy choáng ngợp.\n\n• Nếu bạn muốn, mình có thể kết nối bạn với đội ngũ hỗ trợ của Nami, hoặc chia sẻ một vài mẹo giúp bạn quản lý rủi ro tốt hơn. \n\n**Mình luôn ở đây để đồng hành cùng bạn!**",
+            message_en: "I understand this can be overwhelming.\n\n If you want, I can connect you to Nami's support team, or share some tips to help you manage your risk better. \n\nI'm here to help you."
           };
         } else {
           return {
