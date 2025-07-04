@@ -38,7 +38,7 @@ async function createAgentExecutor() {
 async function runAgentWithMetadata(userInput,detectedLang = 'vi') {
     // console.log("Running agent with input:", userInput);
     // console.log("Detected language:", detectedLang);
-    
+
     const executor = await createAgentExecutor();
     
     // Store tool results để có thể truy cập sau
@@ -60,7 +60,7 @@ async function runAgentWithMetadata(userInput,detectedLang = 'vi') {
     
     const result = await executor.invoke({
         input: userInput,
-        lang: detectedLang 
+        lang: detectedLang
     });
     console.log("Agent execution result:", result);
     return {
