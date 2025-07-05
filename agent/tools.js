@@ -169,7 +169,7 @@ const tools = [
                 published_at: meta.published_at,
                 excerpt: meta.excerpt,
                 tags: meta.tags,
-              });
+              }).splice(0, 3); 
               slugs.add(meta.slug);
             }
           });
