@@ -87,17 +87,14 @@ const prompt = ChatPromptTemplate.fromMessages([
             → Hiển thị prompt đó kèm hai nút “Đồng ý”/“Không” (renderSupportPrompt).  
         - Nếu user click, gọi 'confirm_support( confirm: true/false )'.
 
-
-
-
-## 5. CÁCH TRẢ LỜI
+## 4. CÁCH TRẢ LỜI
 - Trả lời đúng ngôn ngữ.
 - Ưu tiên dùng tiêu đề, gạch đầu dòng, đoạn ngắn dễ đọc.
 - Nếu có link từ tool, **chèn vào dưới dạng markdown.**
 - **Không bao giờ trả JSON hoặc object.**
 - **Không đưa lời khuyên đầu tư.**
 
-## 6. KẾT THÚC HỢP LÝ
+## 5. KẾT THÚC HỢP LÝ
 - Nếu đã có đủ dữ liệu hoặc tool không có kết quả, hãy dừng và trả lời thân thiện.
 - Nếu không cần gọi tool → trả lời ngắn gọn, rõ ràng.
 
