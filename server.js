@@ -88,12 +88,14 @@ app.post("/chat", async (req, res) => {
         // const emotionData = result.metadata?.toolResults?.emotion_support;
         // console.log("Emotion support data:", emotionData);
         // Prepare response
+        console.log("Agent result:", result.metadata.tool_calls);
         const response = {
             output: result.response,
             // Giữ nguyên format cũ để tương thích
             returnValues: { output: result.response },
-            toolCalls: result.response.tool_calls
+            toolCalls: result.metadata.tool_calls
         };
+        // console.log("Agent result:", response);
         
         // Thêm emotion support data nếu có
         // if (emotionData) {
