@@ -189,12 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             const reply = data.output; // reply.output là câu trả lời đã do agent LLM sinh ra, đã đúng tone, đúng guideline
             const emo = data.toolCalls?.emotion_support;
-
+            console.log("Emotion support data:", emo);
             // Nếu có cảm xúc đặc biệt (crisis, negative...) thì có thể hiện badge cảm xúc (nên hiển thị trên message đầu)
             // Optional: hiện label cảm xúc (nếu muốn)
-            if (emo?.emotion?.level && emo.emotion.level !== "neutral") {
-                addMessage('ai', `<span class="emotion-label">Cảm xúc: ${translateLevel(emo.emotion.level)}</span>`, false, true);
-            }
+            // if (emo?.emotion?.level && emo.emotion.level !== "neutral") {
+            //     addMessage('ai', `<span class="emotion-label">Cảm xúc: ${translateLevel(emo.emotion.level)}</span>`, false, true);
+            // }
 
             // Luôn hiện câu trả lời của agent (không lấy message_vi nữa)
             if (reply) {
