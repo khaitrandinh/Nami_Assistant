@@ -1,101 +1,56 @@
 const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
-const { ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder } = require("@langchain/core/prompts");
+// const { ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder } = require("@langchain/core/prompts");
 const { createToolCallingAgent, AgentExecutor } = require("langchain/agents");
+const { BufferMemory } = require("langchain/memory");
 const buildTools = require("./tools");
 // const tools = await buildTools();
 require('dotenv').config();
 // const {getAcademyRAG } = require("./rag");
+// const { BufferMemory } = require("langchain/memory"); //  đúng cách mới
+const prompt = require("./systemPrompt"); //  prompt cố định
+
 
 const model = new ChatGoogleGenerativeAI({
     model: "gemini-2.0-flash",
     maxOutputTokens: 2048,
-    temperature: 0.1,
+    temperature: 0.2,
     apiKey: process.env.GOOGLE_API_KEY,
 });
 
-const prompt = ChatPromptTemplate.fromMessages([
-  SystemMessagePromptTemplate.fromTemplate(`Bạn là một AI Assistant chuyên về tiền điện tử và các sản phẩm của Nami Exchange.
 
-        === 1. NGÔN NGỮ ===
-        - Luôn trả lời chính xác bằng ngôn ngữ mà user đã dùng (vi hoặc en).  
-        - Tuyệt đối không trộn hoặc dịch ngôn ngữ.
-
-        === 2. NGUYÊN TẮC CHUNG ===
-        - Bạn KHÔNG có kiến thức nội bộ nào về giá, token, tin tức, blog, portfolio…  
-        - Mọi thông tin về giá, token, tin tức, blog, portfolio, alert, notification, onboarding… phải được lấy bằng tool tương ứng.  
-        - Không bao giờ trả lời trực tiếp về các dữ liệu đó nếu chưa gọi tool.
-       
-
-        === 3. CÁC TOOL VÀ KHI GỌI ===
-        1. **get_nami_token_info(token_symbol)**  
-        Khi user hỏi “Thông tin [TOKEN]?”, “Giá hiện tại của ETH?”, “Tokenomics NAMI?”…  
-        → Trả về JSON string từ API rồi tóm tắt ngắn gọn.
-
-        2. **get_nami_blog_posts( query_type, keyword, lang, month, year )**  
-        
-        Khi user hỏi “Tin tức Nami”, “Khuyến mãi?”, “Bài blog tháng 5/2025?”, “Cho tôi các bài viết hot”…  
-        → Sau khi có kết quả JSON, liệt kê theo số thứ tự: tiêu đề, ngày, tóm tắt ngắn, [link].
-
-        3. **get_user_portfolio_performance( lang, name_currency )**  
-        Khi user hỏi “Hiệu suất portfolio”, “Tỷ lệ phân bổ ví của tôi”…  
-        → Trả về overview, giá trị VNST/USDT, hiệu suất 24h.
-
-        4. **create_nami_alert( alert_type, base_assets, quote_asset, product_type, value, percentage_change, interval, frequency, lang )**  
-        Khi user yêu cầu “Tạo alert khi BTC > 30k”, “Nhắc tôi khi ETH drop 5% trong 24h”…  
-        → Gọi tool, nếu tool trả về 'ask_to_enable_notifications: true' → hỏi user:  
-            “Thông báo qua app và email đang tắt. Bạn có muốn bật cả hai không?”  
-
-        5. **update_nami_notification_setting( useDeviceNoti, useEmailNoti, lang )**  
-        Khi user đồng ý bật notification → gọi tool này để bật theo lựa chọn.
-
-        6.  **get_nami_faq_guide(query, lang)**  
-            When user asks any question related to platform policies, how-to, FAQ, features, or detailed usage (“How to transfer?”, “What is withdrawal fee?”, “Account verification issues?”...)  
-            → Call this tool, passing user question as 'query' and detected language as 'lang'.  
-            → Summarize the top results in bullet points, include title & link if available.
-
-        7. **get_binance_knowledge( query )**  
-        Khi user muốn kiến thức cơ bản trên Binance Academy (“ETF là gì?”, “Học về NFT”,“Tôi muốn tìm hiểu về ...”,…).  
-        → Lấy docs qua RAG, tóm tắt, liệt kê link.
-
-        8. **emotion_support( text )**  
-        Luôn chạy sentiment phân tích với mọi user input.  
-        - Nếu 'needsSupport=true': tool trả về 'message_vi', 'message_en', 'confirmSupport'.  
-            → Hiển thị prompt đó kèm hai nút “Đồng ý”/“Không” (renderSupportPrompt).  
-        - Nếu user click, gọi 'confirm_support( confirm: true/false )'.
-
-        == HƯỚNG DẪN SỬ DỤNG DỮ LIỆU ==
-        - Sử dụng các tiêu đề hoặc các điểm gạch đầu dòng (bullet points) để trình bày thông tin rõ ràng và dễ đọc.
-        - Đảm bảo câu trả lời của bạn bao gồm:
-            - **Thông tin trực tiếp liên quan đến câu hỏi.**
-            - **Sau đó là một bản tóm tắt ngắn gọn các khía cạnh chính khác (mục đích, dữ liệu thị trường, tokenomics).**
-            - **LUÔN LUÔN BAO GỒM TẤT CẢ CÁC LIÊN KẾT ĐỌC THÊM NẾU CÓ TRONG DỮ LIỆU TỪ CÔNG CỤ. Bạn phải giữ nguyên định dạng liên kết Markdown (ví dụ: [Đọc thêm tại đây](URL)) để chúng có thể nhấp được.**
-        - **QUAN TRỌNG: Nếu một công cụ trả về phản hồi chứa trường 'error' VÀ trường 'ask_for_more_info: true', thì bạn PHẢI ĐẶT CÂU HỎI LÀM RÕ cho người dùng dựa trên thông báo lỗi đó. Ví dụ: 'Bạn cần cung cấp thêm thông tin để tạo cảnh báo: [thông tin thiếu].'**
-        - **Tuyệt đối KHÔNG BAO GIỜ đưa ra lời khuyên đầu tư.** Nếu người dùng hỏi về lời khuyên đầu tư (ví dụ: "có nên giữ dài hạn không?", "có phải là khoản đầu tư tốt không?"), hãy từ chối một cách lịch sự và khuyến nghị họ tham khảo ý kiến chuyên gia tài chính.
-    `),
-  HumanMessagePromptTemplate.fromTemplate("{input}"),
-  new  MessagesPlaceholder("agent_scratchpad")
-]);
-
-// Khi gọi tool get_nami_blog_posts LUÔN LUÔN truyền đủ các field: query_type, keyword (nếu không có thì để rỗng), lang, month, year (nếu không có thì null)
+let executor = null;
 async function createAgentExecutor() {
+    if (executor) return executor;
+
     const tools = await buildTools();
     const agent = await createToolCallingAgent({
         llm: model,
         tools,
         prompt,
+        // verbose: true
     });
-
-    const executor = new AgentExecutor({
+    const memory = new BufferMemory({
+        memoryKey: "chat_history",
+        returnMessages: true,
+        inputKey: "input",
+        outputKey: "output"  // Chỉ định rõ key để lấy
+    });
+    executor = new AgentExecutor({
         agent,
         tools,
+        memory,
         verbose: true,
+        inputKey: "input",   
+        outputKey: "output", 
     });
-
+    // console.log("Agent executor created with tools:", executor);
     return executor;
 }
+
 async function runAgentWithMetadata(userInput,detectedLang = 'vi') {
-    console.log("Running agent with input:", userInput);
-    console.log("Detected language:", detectedLang);
+    // console.log("Running agent with input:", userInput);
+    // console.log("Detected language:", detectedLang);
+
     const executor = await createAgentExecutor();
     
     // Store tool results để có thể truy cập sau
@@ -103,7 +58,7 @@ async function runAgentWithMetadata(userInput,detectedLang = 'vi') {
     
     // Override tool execution để capture results
     const originalTools = executor.tools;
-    executor.tools = originalTools.map(tool => {
+    executor.tools = originalTools.map((tool) => {
         if (tool.name === 'emotion_support') {
             const originalFunc = tool.func;
             tool.func = async (input) => {
@@ -114,23 +69,55 @@ async function runAgentWithMetadata(userInput,detectedLang = 'vi') {
         }
         return tool;
     });
-    
+    const inputWithLang = `[lang=${detectedLang}]\n${userInput}`;
     const result = await executor.invoke({
-        input: userInput,
-        lang: detectedLang 
+        input: inputWithLang,
     });
+
+    // console.log("=== DEBUG RESULT STRUCTURE ===");
+    // console.log("Result keys:", Object.keys(result));
+    // console.log("Result:", JSON.stringify(result, null, 2));
+    
+    // Safe access với nhiều fallback options
+    let output = "No output";
+    
+    if (result.output) {
+        output = result.output;
+    } else if (result.returnValues?.output) {
+        output = result.returnValues.output;
+    } else if (result.returnValues) {
+        // Nếu returnValues có duy nhất 1 key, lấy value của key đó
+        const keys = Object.keys(result.returnValues);
+        if (keys.length === 1) {
+            output = result.returnValues[keys[0]];
+        } else if (keys.length > 1) {
+            // Nếu có nhiều key, ưu tiên theo thứ tự
+            const priorityKeys = ['output', 'response', 'text', 'content'];
+            for (const key of priorityKeys) {
+                if (result.returnValues[key]) {
+                    output = result.returnValues[key];
+                    break;
+                }
+            }
+        }
+    } else if (result.log) {
+        output = result.log;
+    }
+
+    // console.log("=== FINAL OUTPUT ===");
+    // console.log("Output:", output);
+
     return {
         response: {
-            output: result.returnValues?.output || result.output || "No output returned",
-            log: result.log || [],
-            tool_calls: toolResults 
-        }
-        // result.output,
-        // metadata: {
-        //     toolResults,
-        // }
+            output: output
+        },
+        metadata: {
+        tool_calls: Object.keys(toolResults).length ? toolResults : null,
+        log: result.log || null,
+    }
     };
 }
+
 module.exports = {
     createAgentExecutor,    
     runAgentWithMetadata

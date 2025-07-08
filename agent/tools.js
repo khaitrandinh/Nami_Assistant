@@ -138,6 +138,8 @@ const tools = [
           lang: z.enum(["vi", "en"]).default("vi")
         }),
         func: async ({ query, lang }) => {
+          console.log(`→ Searching Nami FAQ for query: "${query}" (lang: ${lang})`);
+          // Lấy chain tóm tắt
           const retriever = await getNamiFaqRetriever(lang);
           const docs = await retriever.getRelevantDocuments(query);
 
@@ -169,7 +171,8 @@ const tools = [
                 published_at: meta.published_at,
                 excerpt: meta.excerpt,
                 tags: meta.tags,
-              });
+              })
+              // articles.splice(0, 3); 
               slugs.add(meta.slug);
             }
           });
@@ -220,73 +223,230 @@ const tools = [
         return `${summary.text.trim()}\n\n🔗 Đọc chi tiết:\n${links}`;
       }
     }),
+
+    // Công cụ hỗ trợ cảm xúc
     new DynamicStructuredTool({
-      name: "emotion_support",
-      description: "Phát hiện sắc thái cảm xúc, đánh giá mức độ stress/lo lắng và (nếu cần) trả về prompt hỗ trợ với nút “Đồng ý”/“Không”.",
-      schema: z.object({
-        text: z.string().describe("Nội dung người dùng nhập")
-      }),
-      func: async ({ text }) => {
-        //  Phân tích sentiment
-        const result = sentiment.analyze(text);
-        console.log(`→ Sentiment analysis result: ${JSON.stringify(result)}`);
+    name: "emotion_support",
+    description: "Phát hiện sắc thái cảm xúc, đánh giá mức độ stress/lo lắng và trả về prompt hỗ trợ phù hợp",
+    schema: z.object({
+      text: z.string().describe("Nội dung người dùng nhập"),
+      previousEmotion: z.string().optional().nullable().describe("Cảm xúc trước đó nếu có")
+    }),
+    func: async ({ text, previousEmotion }) => {
+      // Phân tích sentiment cơ bản (giữ nguyên nhưng nhớ rằng ít hiệu quả với tiếng Việt)
+      const result = sentiment.analyze(text);
+      console.log(`→ Sentiment analysis result: ${JSON.stringify(result)}`);
 
-        // Đếm từ khóa stress/positive
-        const stressKeywords = [
-          'mất tiền','thua lỗ','liquidated','margin call','sập giá',
-          'panic','sợ hãi','lo lắng','stress','áp lực','không ngủ được',
-          'phá sản','nợ nần','gia đình','vay tiền','all in','buồn',
-          'chán nản','khó khăn','khủng hoảng','đau đầu','tức giận',
-          'khó chịu','bực bội','khó khăn tài chính','khủng ổn định',
-          'khủng hoảng tâm lý','khủng hoảng cảm xúc','khủng hoảng đầu tư',
-          'khủng hoảng thị trường','khủng hoảng tiền tệ'
-        ];
-        const positiveKeywords = [
-          'lãi','profit','moon','to the moon','hold','hodl',
-          'mua đáy','dca','long term','tin tưởng'
-        ];
+      // Từ khóa stress/negative - mở rộng
+      const stressKeywords = [
+        // Tài chính/Trading
+        'mất tiền', 'thua lỗ', 'liquidated', 'margin call', 'sập giá',
+        'cháy tài khoản', 'cut loss', 'stop loss', 'về 0', 'sập hầm',
+        'fomo', 'long cháy', 'short cháy', 'bị hunt', 'pump dump', 'rug pull',
+        'scam', 'hack', 'mất ví', 'quên seed phrase', 'bị lừa',
 
-        const low = text.toLowerCase();
-        const stressCount   = stressKeywords.filter(w => low.includes(w)).length;
-        const positiveCount = positiveKeywords.filter(w => low.includes(w)).length;
+        // Cảm xúc tiêu cực
+        'panic', 'sợ hãi', 'lo lắng', 'stress', 'áp lực', 'không ngủ được',
+        'phá sản', 'nợ nần', 'buồn', 'chán nản', 'tức giận', 'khó chịu', 'bực bội',
+        'xóa app', 'bỏ cuộc', 'thất vọng', 'tuyệt vọng', 'khủng hoảng',
 
-        //  Tính adjusted score và phân loại
-        let adjustedScore = result.score - stressCount * 2 + positiveCount;
-        let emotionLevel;
-        if (adjustedScore <= -3)       emotionLevel = 'very_negative';
-        else if (adjustedScore <= -1)  emotionLevel = 'negative';
-        else if (adjustedScore <= 1)   emotionLevel = 'neutral';
-        else if (adjustedScore <= 3)   emotionLevel = 'positive';
-        else                            emotionLevel = 'very_positive';
+        // Kỹ thuật/Lỗi
+        'không rút được', 'pending mãi', 'lỗi hệ thống', 'stuck', 'freeze',
+        'không load được', 'mất kết nối', 'server lỗi', 'lag', 'không load', 'không đặt lệnh được',
 
-        const needsSupport = adjustedScore <= -2 || stressCount >= 2;
+        // Tình huống khẩn cấp
+        'gia đình', 'vay tiền', 'all in', 'cần gấp', 'khó khăn tài chính',
+        'không có tiền', 'cần tiền', 'phải bán', 'ép buộc'
+      ];
 
-        // Trả kết quả chung, kèm prompt nếu cần support
-        const base = {
+      // Từ khóa positive - mở rộng
+      const positiveKeywords = [
+        // Lợi nhuận
+        'lãi', 'profit', 'lãi to', 'x2', 'x5', 'x10', 'về bờ', 'recovered',
+        'moon', 'to the moon', 'pump', 'tăng mạnh', 'break out', 'ath',
+        'all time high', 'bull run', 'golden cross',
+
+        // Tâm lý tích cực
+        'hold', 'hodl', 'mua đáy', 'dca', 'long term', 'tin tưởng',
+        'kiên nhẫn', 'bình tĩnh', 'tự tin', 'lạc quan', 'vui', 'hạnh phúc',
+        'thành công', 'may mắn', 'tuyệt vời', 'xuất sắc'
+      ];
+
+      // Từ khóa ngữ cảnh giao dịch
+      const tradingContext = {
+        technical_issue: ['không rút được', 'lỗi', 'pending', 'stuck', 'freeze', 'server', 'lag', 'không load', 'mất kết nối', 'không đặt lệnh được'],
+        market_concern: ['sập giá', 'dump', 'crash', 'bear market', 'điều chỉnh'],
+        profit_loss: ['lãi', 'lỗ', 'profit', 'loss', 'pnl', 'roi'],
+        beginner: ['mới', 'không biết', 'chưa hiểu', 'lần đầu', 'newbie'],
+        crisis: ['phá sản', 'nợ nần', 'gia đình', 'vay tiền', 'all in', 'cần gấp'] // Giữ lại từ khóa khủng hoảng tài chính/cá nhân
+      };
+
+      // Phân tích từ khóa
+      const low = text.toLowerCase();
+      const stressCount = stressKeywords.filter(w => low.includes(w)).length;
+      const positiveCount = positiveKeywords.filter(w => low.includes(w)).length;
+
+      // Phát hiện ngữ cảnh
+      const contexts = {};
+      Object.keys(tradingContext).forEach(context => {
+        contexts[context] = tradingContext[context].some(w => low.includes(w));
+      });
+
+      // Tính adjusted score với trọng số
+      let adjustedScore = result.score;
+      adjustedScore -= stressCount * 2;
+      adjustedScore += positiveCount * 1.5;
+
+      // Trọng số đặc biệt cho crisis
+      // Giữ nguyên trọng số này để crisis vẫn là mức độ nghiêm trọng nhất
+      if (contexts.crisis) adjustedScore -= 3; 
+      // Giảm nhẹ trọng số technical_issue nếu nó không phải crisis tài chính/cá nhân
+      // Để nó vẫn là tiêu cực nhưng ít hơn crisis thực sự
+      if (contexts.technical_issue) adjustedScore -= 1.5; // Giảm trọng số từ 1 xuống 1.5 để nó không bị đẩy quá sâu
+
+      // Phân loại emotion level - ĐIỀU CHỈNH NGƯỠNG ĐỂ PHÂN BIỆT RÕ HƠN
+      let emotionLevel;
+      // Điều chỉnh ngưỡng crisis để chỉ những trường hợp cực kỳ tiêu cực (có thể liên quan đến crisisKeywords) mới là 'crisis'
+      // Ví dụ: chỉ khi adjustedScore <= -6 HOẶC có crisisKeywords rõ ràng
+      if (contexts.crisis && adjustedScore <= -4) emotionLevel = 'crisis'; // Nếu có từ khóa crisis VÀ điểm rất thấp
+      else if (adjustedScore <= -4) emotionLevel = 'very_negative_severe'; // Mức độ tiêu cực rất cao nhưng không phải crisis tài chính/cá nhân
+      else if (adjustedScore <= -3) emotionLevel = 'very_negative';
+      else if (adjustedScore <= -1) emotionLevel = 'negative';
+      else if (adjustedScore <= 1) emotionLevel = 'neutral';
+      else if (adjustedScore <= 3) emotionLevel = 'positive';
+      else emotionLevel = 'very_positive';
+
+      // Đánh giá độ tin cậy
+      const confidence = {
+        level: stressCount >= 2 || positiveCount >= 2 ? 'high' : 
+              stressCount === 1 || positiveCount === 1 ? 'medium' : 'low',
+        score: Math.min(1, (stressCount + positiveCount) / 3)
+      };
+
+      // Xác định nhu cầu hỗ trợ
+      // needsImmediateSupport giờ cần xem xét kỹ hơn để không bị kích hoạt quá mức cho lỗi kỹ thuật
+      const needsSupport = adjustedScore <= -2 || stressCount >= 2 || contexts.crisis || contexts.technical_issue; // Vẫn cần hỗ trợ nếu là lỗi kỹ thuật
+      const needsImmediateSupport = emotionLevel === 'crisis' || (emotionLevel === 'very_negative_severe' && contexts.technical_issue); // Chỉ 'crisis' hoặc lỗi kỹ thuật cực nặng
+
+      // Phân tích xu hướng (nếu có emotion trước đó)
+      let emotionTrend = null;
+      if (previousEmotion) {
+        const trends = {
+          'crisis': 5, 'very_negative_severe': 4.5, 'very_negative': 4, 'negative': 3, 
+          'neutral': 2, 'positive': 1, 'very_positive': 0
+        };
+        const currentLevel = trends[emotionLevel] || 2;
+        const previousLevel = trends[previousEmotion] || 2;
+        
+        if (currentLevel > previousLevel) emotionTrend = 'deteriorating';
+        else if (currentLevel < previousLevel) emotionTrend = 'improving';
+        else emotionTrend = 'stable';
+      }
+
+      // Tạo action recommendations - ĐIỀU CHỈNH LOGIC ƯU TIÊN ACTION
+      const getActionRecommendations = (level, contexts) => {
+        const actions = {
+          crisis: ['connect_cs_urgent', 'pause_trading', 'seek_professional_help'],
+          very_negative_severe: contexts.technical_issue ? 
+            ['troubleshoot', 'connect_cs_urgent', 'escalate_technical'] : // Thêm escalate_technical nếu là lỗi nghiêm trọng
+            ['connect_cs', 'emotional_support', 'risk_management_tips'], // Nếu không phải lỗi kỹ thuật, vẫn là tiêu cực rất nặng
+          very_negative: ['connect_cs', 'pause_trading', 'emotional_support'],
+          negative: contexts.technical_issue ? 
+            ['troubleshoot', 'connect_cs', 'provide_guide'] : 
+            ['emotional_support', 'risk_management_tips', 'market_education'],
+          neutral: ['provide_info', 'ask_clarification'],
+          positive: ['continue_conversation', 'provide_advanced_tips'],
+          very_positive: ['celebrate', 'provide_advanced_tips', 'share_success']
+        };
+        
+        return actions[level] || actions['neutral'];
+      };
+
+      // Kết quả trả về
+      const base = {
+        // Sentiment analysis
+        sentiment: {
           score: result.score,
           adjustedScore,
           comparative: result.comparative,
-          emotionLevel,
-          stressIndicators: stressCount,
-          positiveIndicators: positiveCount,
-          needsSupport
-        };
-
-        if (needsSupport) {
-          return {
-            ...base,
-            confirmSupport: true,
-            message_vi: "Mình hiểu điều này có thể khiến bạn thấy choáng ngợp.\n\n• Nếu bạn muốn, mình có thể kết nối bạn với đội ngũ hỗ trợ của Nami, hoặc chia sẻ một vài mẹo giúp bạn quản lý rủi ro tốt hơn. \n\n**Mình luôn ở đây để đồng hành cùng bạn!**",
-            message_en: "I understand this can be overwhelming.\n\n If you want, I can connect you to Nami's support team, or share some tips to help you manage your risk better. \n\nI'm here to help you."
-          };
-        } else {
-          return {
-            ...base,
-            confirmSupport: false
-          };
+          confidence
+        },
+        
+        // Emotion classification
+        emotion: {
+          level: emotionLevel,
+          trend: emotionTrend,
+          needsSupport,
+          needsImmediateSupport
+        },
+        
+        // Context analysis
+        context: {
+          indicators: {
+            stress: stressCount,
+            positive: positiveCount
+          },
+          trading: contexts,
+          keywords: {
+            stress: stressKeywords.filter(w => low.includes(w)),
+            positive: positiveKeywords.filter(w => low.includes(w))
+          }
+        },
+        
+        // Recommendations
+        recommendations: {
+          actions: getActionRecommendations(emotionLevel, contexts),
+          priority: needsImmediateSupport ? 'urgent' : needsSupport ? 'high' : 'normal'
         }
-      },
-    }),
+      };
+
+      // Trả về response với message nếu cần support
+      if (needsSupport) {
+        // Điều chỉnh nút hành động dựa trên needsImmediateSupport và context
+        let supportActions = [];
+        if (needsImmediateSupport) {
+          // Hành động khẩn cấp cho crisis hoặc lỗi kỹ thuật cực nặng
+          supportActions = [
+            { type: 'connect_cs_urgent', label_vi: 'Kết nối hỗ trợ khẩn cấp', label_en: 'Connect urgent support' },
+            { type: 'pause_trading', label_vi: 'Tạm dừng giao dịch', label_en: 'Pause trading' }
+          ];
+          // Nếu là lỗi kỹ thuật rất nặng, có thể thêm nút hướng dẫn kỹ thuật khẩn cấp
+          if (contexts.technical_issue) {
+              supportActions.push({ type: 'troubleshoot_urgent', label_vi: 'Hướng dẫn khắc phục khẩn cấp', label_en: 'Urgent troubleshooting' });
+          }
+        } else if (contexts.technical_issue) { // Lỗi kỹ thuật nhưng không quá khẩn cấp đến mức 'crisis'
+          supportActions = [
+            { type: 'troubleshoot', label_vi: 'Hướng dẫn khắc phục', label_en: 'Troubleshoot guide' },
+            { type: 'connect_cs', label_vi: 'Kết nối hỗ trợ kỹ thuật', label_en: 'Connect technical support' },
+            { type: 'provide_guide', label_vi: 'Xem hướng dẫn chi tiết', label_en: 'View detailed guide' }
+          ];
+        } else { // Các trường hợp cần support khác không phải kỹ thuật
+          supportActions = [
+            { type: 'connect_cs', label_vi: 'Kết nối hỗ trợ', label_en: 'Connect support' },
+            { type: 'get_tips', label_vi: 'Nhận mẹo hữu ích', label_en: 'Get helpful tips' },
+            { type: 'continue', label_vi: 'Tiếp tục trò chuyện', label_en: 'Continue chat' }
+          ];
+        }
+
+        return {
+          ...base,
+          support: {
+            required: true,
+            immediate: needsImmediateSupport,           
+            // Buttons/Actions cho UI
+            actions: supportActions
+          }
+        };
+      } else {
+        return {
+          ...base,
+          support: {
+            required: false,
+          }
+        };
+      }
+    },
+  }),
   
 
 

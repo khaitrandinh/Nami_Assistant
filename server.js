@@ -4,8 +4,6 @@ const { createAgentExecutor, runAgentWithMetadata } = require("./agent/agent");
 require("dotenv").config();
 const detectLanguage = require("./utils/langDetect");
 
-// const rebuildAcademyKB = require('./utils/rebuild-academy-kb');
-// const namiFaq = require('./utils/namiFaq');
 const app = express();
 
 app.use(cors({
@@ -92,12 +90,14 @@ app.post("/chat", async (req, res) => {
         // const emotionData = result.metadata?.toolResults?.emotion_support;
         // console.log("Emotion support data:", emotionData);
         // Prepare response
+        console.log("Agent result:", result.metadata.tool_calls);
         const response = {
             output: result.response,
             // Giữ nguyên format cũ để tương thích
             returnValues: { output: result.response },
-            toolCalls: result.response.tool_calls
+            toolCalls: result.metadata.tool_calls
         };
+        // console.log("Agent result:", response);
         
         // Thêm emotion support data nếu có
         // if (emotionData) {
