@@ -3,7 +3,6 @@ const cors = require("cors");
 const { createAgentExecutor, runAgentWithMetadata } = require("./agent/agent");
 require("dotenv").config();
 const detectLanguage = require("./utils/langDetect");
-const { exec } = require("child_process");
 
 const app = express();
 
@@ -52,21 +51,24 @@ app.get('/health', (req, res) => {
 //     }
 // });
 
-app.get("/api/rebuild-kb", (req, res) => {
-  exec("node utils/rebuild-academy-kb.js", (error, stdout, stderr) => {
-    if (error) return res.status(500).send("Lỗi: " + error.message);
-    if (stderr) console.warn(stderr);
-    res.send("Rebuild OK:\n" + stdout);
-  });
-});
+// app.get("/api/rebuild-kb", async (req, res) => {
+//   try {
+//     const result = await rebuildAcademyKB();
+//     res.send("Rebuild OK:\n" + result);
+//   } catch (err) {
+//     res.status(500).send("Lỗi: " + err.message);
+//   }
+// });
 
-app.get("/api/namiFaq", (req, res) => {
-  exec("node utils/namiFaq.js", (error, stdout, stderr) => {
-    if (error) return res.status(500).send("Lỗi: " + error.message);
-    if (stderr) console.warn(stderr);
-    res.send("Rebuild OK:\n" + stdout);
-  });
-});
+// app.get("/api/namiFaq", async (req, res) => {
+//   try {
+//     const result = await namiFaq();
+//     res.send("Rebuild OK:\n" + result);
+//   } catch (err) {
+//     res.status(500).send("Lỗi: " + err.message);
+//   }
+// });
+
 app.post("/chat", async (req, res) => {
     const userInput = req.body.message;
 
