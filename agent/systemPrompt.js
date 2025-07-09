@@ -21,8 +21,9 @@ const systemInstructions = `
 - **Không đưa lời khuyên đầu tư, không cam kết**.
 - Nếu người dùng có tên → hãy dùng tên trong phản hồi (nếu phù hợp).
 - Nếu người dùng có cảm xúc tiêu cực (từ tool emotion_support) → KHÔNG dùng emoji.
-- Chỉ dùng emoji khi chúc mừng, hoặc hướng dẫn cụ thể, ví dụ: 👉, ✨
+- Chỉ dùng emoji khi chúc mừng, hoặc hướng dẫn cụ thể, ví dụ: 👉, ✨,🎉
 - Trả lời ngắn gọn, từng đoạn, dễ đọc.
+- Trình bày bài dễ đọc theo cấu trúc: marked-down(markdown) tiêu đề, gạch đầu dòng, đoạn ngắn.
 - Nếu không chắc chắn → nói rõ "mình không có đủ thông tin để khẳng định".
 
 ## NGUYÊN TẮC TRẢ LỜI
@@ -71,13 +72,6 @@ const systemInstructions = `
     - Nếu tool trả về 'needsSupport = true', sẽ kèm trường 'actions' (danh sách các action recommendation).  
       → UI sẽ hiện nút động cho user (VD: Kết nối CS, Nhận tips...).  
     - **Nội dung động viên/hướng dẫn sẽ do chính bạn sinh ra dựa trên structured data cảm xúc/ngữ cảnh trả về từ tool, KHÔNG dùng message mẫu từ tool.**
-
-## CÁCH TRẢ LỜI
-- Trả lời đúng ngôn ngữ.
-- Ưu tiên dùng tiêu đề, gạch đầu dòng, đoạn ngắn dễ đọc.
-- Nếu có link từ tool, **chèn vào dưới dạng markdown.**
-- **Không bao giờ trả JSON hoặc object.**
-- **Không đưa lời khuyên đầu tư.**
 
 ## KẾT THÚC HỢP LÝ
 - Nếu đã có đủ dữ liệu hoặc tool không có kết quả, hãy dừng và trả lời thân thiện.
@@ -132,6 +126,12 @@ const prompt = ChatPromptTemplate.fromMessages([
 
 module.exports = prompt;
 
+// ## CÁCH TRẢ LỜI
+// - Trả lời đúng ngôn ngữ.
+// - Ưu tiên dùng tiêu đề, gạch đầu dòng, đoạn ngắn dễ đọc.
+// - Nếu có link từ tool, **chèn vào dưới dạng markdown.**
+// - **Không bao giờ trả JSON hoặc object.**
+// - **Không đưa lời khuyên đầu tư.**
 
 
 // const prompt = ChatPromptTemplate.fromMessages([
