@@ -44,21 +44,72 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleSupportAction(type) {
-    // Tùy vào type action mà bạn xử lý
-        if (type === 'connect_cs' || type === 'connect_cs_urgent') {
-            // Có thể mở trang CS hoặc thông báo lên chat
-            addMessage('ai', '💡 <strong>Hướng dẫn:</strong><br>• Chuyển sang tab vừa mở<br>• Tìm biểu tượng chat/hỗ trợ<br>• Click và nhập "Nội dung bạn cần hỗ trợ"', false, true);
-            setTimeout(() => window.open("https://test.nami.exchange/vi/support", "_blank")?.focus(), 3000);
-            addMessage('ai', 'Cảm ơn bạn, mình đã kết nối bạn với đội hỗ trợ. Bạn hãy kiểm tra tab mới nhé.');
-        } else if (type === 'pause_trading') {
-            addMessage('ai', 'Bạn nên tạm dừng giao dịch và nghỉ ngơi một chút. Nếu cần mình luôn ở đây hỗ trợ bạn.');
-        } else if (type === 'get_tips') {
-            addMessage('ai', 'Một số mẹo quản lý cảm xúc khi trade: Luôn kiểm soát khối lượng, nghỉ ngơi khi cảm xúc không ổn định, đừng “all in” khi stress...');
-        } else if (type === 'continue') {
-            addMessage('ai', 'Cảm ơn bạn! Mình luôn ở đây nếu bạn cần hỗ trợ thêm.');
-        }
-        // Xóa nút sau khi chọn action
+    // Xóa tất cả các nút hỗ trợ sau khi người dùng chọn một action
         document.querySelectorAll(".support-buttons").forEach(el => el.remove());
+
+        // Xử lý tùy theo loại action
+        switch (type) {
+            case 'connect_cs':
+            case 'connect_cs_urgent': // Kết nối hỗ trợ khách hàng (khẩn cấp hoặc bình thường)
+                addMessage('ai', '💡 <strong>Hướng dẫn:</strong><br>• Chuyển sang tab vừa mở<br>• Tìm biểu tượng chat/hỗ trợ<br>• Click và nhập "Nội dung bạn cần hỗ trợ"', false, true);
+                setTimeout(() => window.open("https://test.nami.exchange/vi/support", "_blank")?.focus(), 3000);
+                addMessage('ai', 'Cảm ơn bạn, mình đã kết nối bạn với đội hỗ trợ. Bạn hãy kiểm tra tab mới nhé.');
+                break;
+
+            case 'pause_trading': // Tạm dừng giao dịch
+                addMessage('ai', 'Bạn nên tạm dừng giao dịch và nghỉ ngơi một chút để giữ tâm lý ổn định hơn. Nếu cần mình luôn ở đây hỗ trợ bạn.');
+                break;
+
+            case 'get_tips': // Nhận mẹo hữu ích (chung về cảm xúc)
+                addMessage('ai', 'Dưới đây là một số mẹo quản lý cảm xúc khi giao dịch:<br>• Luôn kiểm soát khối lượng giao dịch.<br>• Nghỉ ngơi khi cảm thấy cảm xúc không ổn định.<br>• Tránh "all in" khi đang stress hoặc hoảng loạn.<br>• Đặt ra giới hạn lợi nhuận và cắt lỗ rõ ràng.');
+                break;
+
+            case 'continue': // Tiếp tục trò chuyện
+                addMessage('ai', 'Tuyệt vời! Mình luôn ở đây nếu bạn cần hỗ trợ hoặc muốn tiếp tục trò chuyện.');
+                break;
+
+            case 'troubleshoot': // Hướng dẫn khắc phục lỗi (chung)
+                addMessage('ai', 'Để khắc phục sự cố, bạn vui lòng thực hiện các bước sau:<br>1. Kiểm tra kết nối Internet.<br>2. Thử làm mới trang hoặc khởi động lại ứng dụng.<br>3. Đảm bảo phiên bản ứng dụng của bạn là mới nhất.<br>Nếu vẫn gặp vấn đề, vui lòng sử dụng nút "Kết nối hỗ trợ kỹ thuật".');
+                break;
+                
+            case 'troubleshoot_urgent': // Hướng dẫn khắc phục lỗi khẩn cấp
+                addMessage('ai', 'Đây là vấn đề kỹ thuật khẩn cấp. Bạn vui lòng thực hiện các bước sau ngay lập tức để khắc phục hoặc giảm thiểu rủi ro:<br>1. Kiểm tra kỹ lại các kết nối và thông tin giao dịch.<br>2. Thử truy cập bằng một thiết bị hoặc trình duyệt khác.<br>3. Chụp ảnh/quay video màn hình lỗi để cung cấp cho đội hỗ trợ.<br>Nếu không tự khắc phục được, hãy liên hệ hỗ trợ khẩn cấp.');
+                break;
+
+            case 'connect_cs_technical': // Kết nối hỗ trợ kỹ thuật (đã tách từ connect_cs)
+                addMessage('ai', 'Mình đã kết nối bạn với đội hỗ trợ kỹ thuật. Vui lòng mô tả chi tiết lỗi bạn gặp phải và cung cấp các thông tin cần thiết (ID giao dịch, ảnh chụp màn hình).');
+                setTimeout(() => window.open("https://test.nami.exchange/vi/support?topic=technical", "_blank")?.focus(), 3000); // Có thể thêm param topic
+                break;
+
+            case 'escalate_technical': // Leo thang vấn đề kỹ thuật
+                addMessage('ai', 'Đây là một vấn đề kỹ thuật cần được ưu tiên cao. Mình sẽ báo cáo trực tiếp tới đội ngũ kỹ thuật cấp cao để họ kiểm tra và xử lý sớm nhất. Vui lòng chờ đợi trong giây lát hoặc cung cấp thêm chi tiết nếu có.');
+                // Gửi thông báo đến hệ thống nội bộ để leo thang vấn đề
+                break;
+
+            case 'provide_guide': // Cung cấp hướng dẫn chi tiết
+                addMessage('ai', 'Bạn muốn tìm hiểu hướng dẫn về vấn đề nào? Vui lòng chọn chủ đề hoặc mô tả cụ thể để mình cung cấp tài liệu phù hợp.');
+                // Có thể thêm các nút phụ hoặc chuyển hướng đến trang hướng dẫn
+                break;
+                
+            case 'share_success': // Chia sẻ thành công
+                addMessage('ai', 'Chúc mừng thành công của bạn! Bạn có thể chia sẻ niềm vui này với cộng đồng của chúng tôi tại [Link Cộng đồng] nhé!');
+                // Có thể thêm nút "Chia sẻ ngay" dẫn đến các mạng xã hội
+                break;
+
+            case 'provide_advanced_tips': // Cung cấp mẹo nâng cao
+                addMessage('ai', 'Bạn đã giao dịch rất tốt! Dưới đây là một vài mẹo nâng cao giúp bạn tối ưu hơn nữa:<br>• Phân tích kỹ thuật chuyên sâu.<br>• Quản lý rủi ro nâng cao.<br>• Đa dạng hóa danh mục đầu tư.');
+                // Có thể thêm link đến bài viết hoặc video hướng dẫn
+                break;
+
+            case 'seek_professional_help': // Tìm kiếm trợ giúp chuyên nghiệp (tâm lý)
+                addMessage('ai', 'Nếu bạn cảm thấy quá áp lực và không thể tự mình vượt qua, đừng ngần ngại tìm kiếm sự giúp đỡ từ các chuyên gia tâm lý. Dưới đây là một số nguồn tham khảo:<br>[Link đến các tổ chức/tổng đài hỗ trợ tâm lý]');
+                break;
+
+            // Thêm các trường hợp khác nếu có action type mới được định nghĩa
+            default:
+                addMessage('ai', 'Xin lỗi, mình chưa hiểu yêu cầu của bạn. Bạn có thể nói rõ hơn không?');
+                break;
+        }
     }
     function translateLevel(level) {
     switch(level) {
@@ -106,6 +157,10 @@ document.addEventListener('DOMContentLoaded', () => {
             msg.innerHTML = text;
         } else if (typeof marked !== 'undefined' && text) {
             try {
+                let input = text;
+                if (!/[#\-\*\[\]]/.test(text)) {
+                    input = text.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
+                }
                 const parsed = marked.parse(text);
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = parsed;
