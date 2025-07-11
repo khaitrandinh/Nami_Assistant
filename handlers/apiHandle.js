@@ -43,36 +43,60 @@ async function get_nami_asset_id(token_symbol) {
 
 
 // --- Hàm xử lý get_nami_token_info ---
-async function get_nami_token_info(token_symbol) {
+async function get_nami_token_info(token_symbol, lang = 'vi') {
     const namiId = await get_nami_asset_id(token_symbol);
+    // Error messages in both languages
+    const notFoundMsg = {
+        vi: `Không tìm thấy ID Nami cho token ${token_symbol}.`,
+        en: `Cannot find Nami ID for token ${token_symbol}.`
+    };
+    const noDataMsg = {
+        vi: `Không có dữ liệu chi tiết cho token ${token_symbol} từ Nami hoặc phản hồi không hợp lệ.`,
+        en: `No detailed data for token ${token_symbol} from Nami or invalid response.`
+    };
+    const fetchErrorMsg = {
+        vi: `Không thể lấy thông tin token ${token_symbol} từ Nami. Vui lòng kiểm tra lại mã token hoặc thử lại sau.`,
+        en: `Cannot fetch token info for ${token_symbol} from Nami. Please check the token symbol or try again later.`
+    };
+
     if (!namiId) {
-        return { error: `Không tìm thấy ID Nami cho token ${token_symbol}.` };
+        return { error: notFoundMsg[lang] || notFoundMsg.vi };
     }
     try {
         const response = await axios.get(`${process.env.NAMI_SPOT_API_BASE_URL}`, {
             params: { id: namiId }
         });
-        const assetInfoData = response.data.data; // Dữ liệu chính nằm trong response.data.data
+        const assetInfoData = response.data.data;
 
         if (!assetInfoData) {
-             return { error: `Không có dữ liệu chi tiết cho token ${token_symbol} từ Nami hoặc phản hồi không hợp lệ.` };
+            return { error: noDataMsg[lang] || noDataMsg.vi };
         }
 
         let formattedData = {};
 
-        // Thông tin cơ bản
+        // Basic info
         formattedData.name = assetInfoData.name;
         formattedData.symbol = assetInfoData.symbol?.toUpperCase();
 
-        // Mô tả/Use Case (ưu tiên tiếng Việt, loại bỏ HTML, làm sạch)
+        // Descriptions (both languages, clean HTML)
         formattedData.description_vi = assetInfoData.description?.vi || assetInfoData.description?.en || "Không có mô tả chi tiết.";
-        let cleanedDescription = formattedData.description_vi.replace(/<[^>]*>?/gm, '');
-        formattedData.use_case_summary = cleanedDescription.split('.')[0] + '.';
-        if (formattedData.use_case_summary.length < 50 && cleanedDescription.length > 50) {
-            formattedData.use_case_summary = cleanedDescription.substring(0, Math.min(200, cleanedDescription.length)) + (cleanedDescription.length > 200 ? '...' : '');
+        formattedData.description_en = assetInfoData.description?.en || assetInfoData.description?.vi || "No detailed description.";
+
+        // Clean and summarize use case for both languages
+        let cleanedDescriptionVi = formattedData.description_vi.replace(/<[^>]*>?/gm, '');
+        let cleanedDescriptionEn = formattedData.description_en.replace(/<[^>]*>?/gm, '');
+
+        formattedData.use_case_summary_vi = cleanedDescriptionVi.split('.')[0] + '.';
+        if (formattedData.use_case_summary_vi.length < 50 && cleanedDescriptionVi.length > 50) {
+            formattedData.use_case_summary_vi = cleanedDescriptionVi.substring(0, Math.min(200, cleanedDescriptionVi.length)) + (cleanedDescriptionVi.length > 200 ? '...' : '');
         }
 
-        // Dữ liệu thị trường (từ coingecko_metadata)
+        formattedData.use_case_summary_en = cleanedDescriptionEn.split('.')[0] + '.';
+        if (formattedData.use_case_summary_en.length < 50 && cleanedDescriptionEn.length > 50) {
+            formattedData.use_case_summary_en = cleanedDescriptionEn.substring(0, Math.min(200, cleanedDescriptionEn.length)) + (cleanedDescriptionEn.length > 200 ? '...' : '');
+        }
+
+        // Market data
         const cg_metadata = assetInfoData.coingecko_metadata;
         if (cg_metadata) {
             formattedData.market_data = {
@@ -80,7 +104,7 @@ async function get_nami_token_info(token_symbol) {
                 market_cap_usd: cg_metadata.market_cap,
                 total_volume_24h_usd: cg_metadata.total_volume,
                 price_change_percentage_24h: cg_metadata.price_change_percentage_24h,
-                cmc_rank: assetInfoData.cmc_rank // Lấy cmc_rank từ Nami data gốc
+                cmc_rank: assetInfoData.cmc_rank
             };
         }
 
@@ -91,55 +115,77 @@ async function get_nami_token_info(token_symbol) {
             max_supply: assetInfoData.max_supply
         };
 
-        // URLs (cho Gemini biết các nguồn để trích dẫn hoặc hướng dẫn người dùng)
+        // URLs
         formattedData.urls = {
             website: assetInfoData.urls?.website?.[0],
             twitter: assetInfoData.urls?.twitter?.[0]
         };
 
-        // --- Tạo một chuỗi tóm tắt CÓ CẤU TRÚC để Gemini dễ dàng tổng hợp ---
-        let summaryString = `**Thông tin chi tiết về ${formattedData.name} (${formattedData.symbol}):**\n\n`;
+        // --- Structured summary in both languages ---
+        let summaryStringVi = `**Thông tin chi tiết về ${formattedData.name} (${formattedData.symbol}):**\n\n`;
+        let summaryStringEn = `**Detailed information about ${formattedData.name} (${formattedData.symbol}):**\n\n`;
 
-        // 1. Mục đích/Trường hợp sử dụng
-        if (formattedData.use_case_summary && formattedData.use_case_summary !== 'Không có mô tả chi tiết.') {
-            summaryString += `**Mục đích/Trường hợp sử dụng/Dùng để làm gì:** ${formattedData.use_case_summary}\n\n`;
+        // 1. Use case
+        if (formattedData.use_case_summary_vi && formattedData.use_case_summary_vi !== 'Không có mô tả chi tiết.') {
+            summaryStringVi += `**Mục đích/Trường hợp sử dụng/Dùng để làm gì:** ${formattedData.use_case_summary_vi}\n\n`;
+        }
+        if (formattedData.use_case_summary_en && formattedData.use_case_summary_en !== 'No detailed description.') {
+            summaryStringEn += `**Purpose/Use case/What is it for:** ${formattedData.use_case_summary_en}\n\n`;
         }
 
         // 2. Dữ liệu thị trường
         if (formattedData.market_data && formattedData.market_data.current_price_usd) {
-            summaryString += `**Dữ liệu thị trường hiện tại:**\n`;
-            summaryString += `- Giá: ${formattedData.market_data.current_price_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} (cập nhật gần đây)\n`;
-            summaryString += `- Vốn hóa thị trường: ${formattedData.market_data.market_cap_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}\n`;
-            summaryString += `- Khối lượng giao dịch 24h: ${formattedData.market_data.total_volume_24h_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}\n`;
-            summaryString += `- Thay đổi giá 24h: ${formattedData.market_data.price_change_percentage_24h ? formattedData.market_data.price_change_percentage_24h.toFixed(2) : 'N/A'}%\n`;
+            summaryStringVi += `**Dữ liệu thị trường hiện tại:**\n`;
+            summaryStringVi += `- Giá: ${formattedData.market_data.current_price_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} (cập nhật gần đây)\n`;
+            summaryStringVi += `- Vốn hóa thị trường: ${formattedData.market_data.market_cap_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}\n`;
+            summaryStringVi += `- Khối lượng giao dịch 24h: ${formattedData.market_data.total_volume_24h_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}\n`;
+            summaryStringVi += `- Thay đổi giá 24h: ${formattedData.market_data.price_change_percentage_24h ? formattedData.market_data.price_change_percentage_24h.toFixed(2) : 'N/A'}%\n`;
             if (formattedData.market_data.cmc_rank) {
-                summaryString += `- Xếp hạng Vốn hóa thị trường: #${formattedData.market_data.cmc_rank}\n\n`;
+                summaryStringVi += `- Xếp hạng Vốn hóa thị trường: #${formattedData.market_data.cmc_rank}\n\n`;
+            }
+
+            summaryStringEn += `**Current market data:**\n`;
+            summaryStringEn += `- Price: ${formattedData.market_data.current_price_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} (recent update)\n`;
+            summaryStringEn += `- Market cap: ${formattedData.market_data.market_cap_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}\n`;
+            summaryStringEn += `- 24h trading volume: ${formattedData.market_data.total_volume_24h_usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}\n`;
+            summaryStringEn += `- 24h price change: ${formattedData.market_data.price_change_percentage_24h ? formattedData.market_data.price_change_percentage_24h.toFixed(2) : 'N/A'}%\n`;
+            if (formattedData.market_data.cmc_rank) {
+                summaryStringEn += `- Market cap rank: #${formattedData.market_data.cmc_rank}\n\n`;
             }
         }
 
         // 3. Tokenomics
         if (formattedData.tokenomics.circulating_supply || formattedData.tokenomics.total_supply) {
-            summaryString += `**Tokenomics:**\n`;
-            summaryString += `- Tổng cung lưu hành: ${formattedData.tokenomics.circulating_supply ? formattedData.tokenomics.circulating_supply.toLocaleString() : 'N/A'}\n`;
-            summaryString += `- Tổng cung tối đa: ${formattedData.tokenomics.max_supply ? formattedData.tokenomics.max_supply.toLocaleString() : 'N/A'}\n\n`;
+            summaryStringVi += `**Tokenomics:**\n`;
+            summaryStringVi += `- Tổng cung lưu hành: ${formattedData.tokenomics.circulating_supply ? formattedData.tokenomics.circulating_supply.toLocaleString() : 'N/A'}\n`;
+            summaryStringVi += `- Tổng cung tối đa: ${formattedData.tokenomics.max_supply ? formattedData.tokenomics.max_supply.toLocaleString() : 'N/A'}\n\n`;
+
+            summaryStringEn += `**Tokenomics:**\n`;
+            summaryStringEn += `- Circulating supply: ${formattedData.tokenomics.circulating_supply ? formattedData.tokenomics.circulating_supply.toLocaleString() : 'N/A'}\n`;
+            summaryStringEn += `- Max supply: ${formattedData.tokenomics.max_supply ? formattedData.tokenomics.max_supply.toLocaleString() : 'N/A'}\n\n`;
         }
 
-        // 4. Liên kết hữu ích
+        // 4. Useful links
         if (formattedData.urls.website) {
-            summaryString += `Để biết thêm chi tiết, bạn có thể truy cập website chính thức: ${formattedData.urls.website}\n`;
+            summaryStringVi += `Để biết thêm chi tiết, bạn có thể truy cập website chính thức: ${formattedData.urls.website}\n`;
+            summaryStringEn += `For more details, you can visit the official website: ${formattedData.urls.website}\n`;
         } else if (formattedData.urls.twitter) {
-             summaryString += `Bạn có thể tìm thêm thông tin trên Twitter: ${formattedData.urls.twitter}\n`;
+            summaryStringVi += `Bạn có thể tìm thêm thông tin trên Twitter: ${formattedData.urls.twitter}\n`;
+            summaryStringEn += `You can find more information on Twitter: ${formattedData.urls.twitter}\n`;
         }
 
+        // Return both languages, and select summary by lang param
         return {
             source: "Nami",
-            summary: summaryString, 
-            full_data_extracted: formattedData 
+            summary: lang === 'en' ? summaryStringEn : summaryStringVi,
+            summary_vi: summaryStringVi,
+            summary_en: summaryStringEn,
+            full_data_extracted: formattedData
         };
 
     } catch (error) {
         console.error(`Lỗi khi lấy thông tin token Nami cho ${token_symbol} (ID: ${namiId}):`, error.response?.data || error.message);
-        return { error: `Không thể lấy thông tin token ${token_symbol} từ Nami. Vui lòng kiểm tra lại mã token hoặc thử lại sau.` };
+        return { error: fetchErrorMsg[lang] || fetchErrorMsg.vi };
     }
 }
 
@@ -331,6 +377,8 @@ async function get_nami_blog_posts(query_type = 'latest', keyword = '', lang = '
         throw { error: `Không thể lấy tin tức/blog từ Nami lúc này. Vui lòng kiểm tra lại cấu hình API hoặc thử lại sau.` };
     }
 }
+
+
 
 // Porfolio_User
 async function get_nami_token_symbol(assetId) {
