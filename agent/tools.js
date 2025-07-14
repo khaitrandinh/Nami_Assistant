@@ -14,14 +14,22 @@ const { getAcademyRAG } = require("./rag");
 const { getNamiFaqRetriever } = require("./rag_nami_faq");
 const Sentiment = require('sentiment');
 const sentiment = new Sentiment();
-
+const { Pinecone } = require('@pinecone-database/pinecone');
+const { GoogleGenerativeAIEmbeddings } = require('@langchain/google-genai');
+const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
+const pineconeIndex = pc.index(process.env.PINECONE_INDEX_NAME);
+const embeddings = new GoogleGenerativeAIEmbeddings({
+  apiKey: process.env.GOOGLE_API_KEY,
+  model: "text-embedding-004"
+});
+const stringSimilarity = require("string-similarity");
 async function buildTools() {
 const binanceRag = await getAcademyRAG();
 
  const summarizationChain = loadSummarizationChain(
     new ChatGoogleGenerativeAI({
       model: "gemini-2.0-flash",
-      temperature: 0.2,
+      temperature: 0.3,
       apiKey: process.env.GOOGLE_API_KEY
     }),
     { type: "map_reduce" }
@@ -32,9 +40,10 @@ const tools = [
         description: "Truy xuất thông tin chi tiết về một token tiền điện tử trên Nami Exchange.",
         schema: z.object({
             token_symbol: z.string().describe("Mã ký hiệu token, ví dụ: BTC, ETH, tên token bitcoin, ethereum,..."),
+            lang: z.enum(["vi", "en"]).optional().default("vi"),
         }),
-        func: async ({ token_symbol }) => {
-            const result = await get_nami_token_info(token_symbol);
+        func: async ({ token_symbol, lang }) => {
+            const result = await get_nami_token_info(token_symbol, lang);
             return JSON.stringify(result);
         },
     }),
@@ -130,68 +139,79 @@ const tools = [
         },
     }),
 
+    
+
     new DynamicStructuredTool({
-        name: "get_nami_faq_guide",
-        description: "Deep-search FAQs Nami Exchange (vi/en), trả về tóm tắt markdown + metadata. Dùng cho mọi câu hỏi kiến thức, thao tác, quy định trên Nami.",
-        schema: z.object({
-          query: z.string().describe("Câu hỏi về hướng dẫn, quy định, thao tác Nami Exchange (bất kỳ lĩnh vực nào)"),
-          lang: z.enum(["vi", "en"]).default("vi")
-        }),
-        func: async ({ query, lang }) => {
-          console.log(`→ Searching Nami FAQ for query: "${query}" (lang: ${lang})`);
-          // Lấy chain tóm tắt
-          const retriever = await getNamiFaqRetriever(lang);
-          const docs = await retriever.getRelevantDocuments(query);
+      name: "get_nami_faq_guide",
+      description: "Deep-search FAQs Nami Exchange (vi/en), trả về tóm tắt markdown + metadata. Dùng cho mọi câu hỏi kiến thức, thao tác, quy định trên Nami.",
+      schema: z.object({
+        query: z.string().describe("Câu hỏi về hướng dẫn, quy định, thao tác Nami Exchange (bất kỳ lĩnh vực nào)"),
+        lang: z.enum(["vi", "en"]).default("vi")
+      }),
+      func: async ({ query, lang }) => {
+        console.log(`→ Searching Nami FAQ for query: "${query}" (lang: ${lang})`);
 
-          if (!docs.length) {
-            return {
-              error: (lang === "vi")
-                ? `Không tìm thấy nội dung phù hợp với “${query}”.`
-                : `No relevant content found for “${query}”.`
-            };
-          }
-
-          // Chain tóm tắt các chunk liên quan
-          const summary = await summarizationChain.call({
-            input_documents: docs,
-            question: query
-          });
-
-          // Gom metadata bài
-          const articles = [];
-          const slugs = new Set();
-          docs.forEach(doc => {
-            const meta = doc.metadata || {};
-            if (!slugs.has(meta.slug)) {
-              articles.push({
-                title: meta.title,
-                url: meta.url,
-                // slug: meta.slug,
-                // category_slug: meta.category_slug,
-                published_at: meta.published_at,
-                excerpt: meta.excerpt,
-                // tags: meta.tags,
-              })
-              // articles.splice(0, 3); 
-              slugs.add(meta.slug);
-            }
-          });
-
-          // Gom links để gợi ý đọc thêm
-          const links = articles.map(a =>
-            `• [${a.title}](${a.url})`
-          ).join('\n');
-
-          // Kết quả đầy đủ để dễ dùng cho cả chat và UI
+        // 1) Lấy retriever đã cấu hình MMR
+        const retriever = await getNamiFaqRetriever(lang);
+        // MMR sẽ trả về một mảng các chunk với pageContent, metadata và score
+        const docs = await retriever.getRelevantDocuments(query);
+        if (!docs.length) {
           return {
-            source: "Nami FAQ",
-            summary: summary.text.trim(),
-            // articles_count: articles.length,
-            articles: articles,
-            links_markdown: links
+            error: lang === "vi"
+              ? `Không tìm thấy nội dung phù hợp với “${query}”.`
+              : `No relevant content found for “${query}”.`
           };
         }
-      }),
+
+        // 2) Gom nhóm theo slug và cộng dồn score để tìm bài có tổng điểm cao nhất
+        const slugScores = {};
+        for (const doc of docs) {
+          const slug = doc.metadata.slug;
+          slugScores[slug] = (slugScores[slug] || 0) + doc.score;
+        }
+        const bestSlug = Object.entries(slugScores)
+          .sort((a, b) => b[1] - a[1])[0][0];
+
+        // 3) Fetch lại tất cả các chunk của bài bestSlug, sắp xếp theo chunkNumber
+        const namespace = `nami-faq-${lang}`;
+        const queryEmbedding = await embeddings.embedQuery(query);
+        const queryResult = await pineconeIndex
+          .namespace(namespace)
+          .query({
+            topK: 100,
+            includeMetadata: true,
+            filter: { slug: { "$eq": bestSlug } },
+            vector: queryEmbedding
+          });
+        const allChunks = (queryResult.matches || [])
+          .sort((a, b) => a.metadata.chunkNumber - b.metadata.chunkNumber);
+
+        // 4) Nối full text và lấy metadata chung
+        const fullText = allChunks.map(c => c.metadata.text).join("\n\n");
+        const meta = allChunks[0]?.metadata || docs.find(d => d.metadata.slug === bestSlug).metadata;
+
+        // 5) Gợi ý các bài liên quan (top 3 slug khác)
+        const relatedSlugs = Object.entries(slugScores)
+          .filter(([slug]) => slug !== bestSlug)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([slug]) => {
+            const d = docs.find(doc => doc.metadata.slug === slug);
+            return { title: d.metadata.title, url: d.metadata.url };
+          });
+
+        // 6) Trả về kết quả
+        return {
+          source: "Nami FAQ",
+          title: meta.title,
+          url: meta.url,
+          content: fullText,
+          related: relatedSlugs
+        };
+      }
+    }),
+
+
     new DynamicStructuredTool({
       name: 'get_binance_knowledge',
       description: 'Deep‐search RAG trên Binance Academy: tóm tắt nội dung và cung cấp link.',

@@ -296,7 +296,7 @@ async function get_nami_blog_posts(query_type = 'latest', keyword = '', lang = '
         // Quyết định có nên cắt số lượng bài đăng hay không.
         // Nếu có tháng/năm cụ thể, chúng ta muốn trả về TẤT CẢ các bài khớp, không cắt.
         const applySliceLimit = (month === null && year === null);
-        const defaultSliceLimit = 5; // Mặc định 5 bài nếu không có tháng/năm cụ thể
+        const defaultSliceLimit = 3; // Mặc định 5 bài nếu không có tháng/năm cụ thể
 
         if (query_type === 'latest' || query_type === 'news') {
             filteredPosts = applySliceLimit ? timeFilteredPosts.slice(0, defaultSliceLimit) : timeFilteredPosts;
@@ -1232,23 +1232,7 @@ async function create_nami_alert(alert_type, base_assets, quote_asset='USDT', pr
 //             return links;
 //         };
 
-//         // Enhanced image extraction
-//         // const extractImagesFromHtml = (htmlContent) => {
-//         //     const $ = cheerio.load(htmlContent);
-//         //     const images = [];
-            
-//         //     $('img').each((i, img) => {
-//         //         const $img = $(img);
-//         //         const src = $img.attr('src');
-//         //         const alt = $img.attr('alt') || `Hình ảnh ${i + 1}`;
-                
-//         //         if (src && src.startsWith('http')) {
-//         //             images.push({ url: src, alt });
-//         //         }
-//         //     });
-            
-//         //     return images;
-//         // };
+//         
 
 //         // Generate enhanced summary
 //         let finalSummaryText = (lang === 'vi') 
