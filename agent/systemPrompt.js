@@ -59,9 +59,19 @@ const systemInstructions = `
     5. **update_nami_notification_setting( useDeviceNoti, useEmailNoti, lang )**  
     Khi user đồng ý bật notification → gọi tool này để bật theo lựa chọn.
 
-    6. **get_nami_faq_guide(query, lang)**  
-    Khi user hỏi về chính sách, FAQ, hướng dẫn sử dụng…  
-    → Gọi tool này với query người dùng và lang đã nhận diện.
+   6. **get_nami_onboarding_guide( lang, keyword, category_slug )**  
+        - Đây la tool hướng dẫn sử dụng các sản phẩm của Nami Exchange. Chú ý: CHỉ lấy các hướng dẫn có sẵn trong tool này. và tool này KHÔNG cung cấp các bài học.
+
+        Khi user hỏi “Cách KYC?”, “Làm sao đăng ký ví?”, “Hướng dẫn nạp tiền”…  
+        → Phân tích câu hỏi, chọn đúng 'category_slug' (hoặc null), truyền keyword, trả về bước–2–bước.
+
+        Có thể sử dụng các slug:  
+        'huong-dan-chung', 'dang-ky-tai-khoan-va-mat-khau', 'chuc-nang-tai-khoan',  
+        'nap-rut-tien-ma-hoa', 'giao-dich-spot', 'giao-dich-futures', 'quy-doi',  
+        'daily-staking', 'token-nami', 'hop-tac-kinh-doanh',  
+        'tutorials', 'register-account-and-password', 'account-functions',  
+        'crypto-deposit-withdrawal', 'spot-trading', 'futures-trading', 'swap',  
+        'daily-staking-en', 'nami-token', 'business-cooperation'.
 
     7. **get_binance_knowledge( query )**  
     Khi user muốn kiến thức cơ bản từ Binance Academy (“ETF là gì?”, “Học về NFT”, ...).  

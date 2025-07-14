@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isProcessing = false;
 
     function checkConnection() {
-        fetch('https://nami-assistant.vercel.app/health')
+        fetch('http://localhost:3000/health')
             .then(response => {
                 if (response.ok) {
                     isConnected = true;
@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.support-buttons').forEach(el => el.remove());
         if (!confirm) {
             try {
-                const res = await fetch('https://nami-assistant.vercel.app/chat', {
+                const res = await fetch('http://localhost:3000/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: "không" })
@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 100000);
-            const res = await fetch('https://nami-assistant.vercel.app/chat', {
+            const res = await fetch('http://localhost:3000/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: question }),
