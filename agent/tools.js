@@ -32,9 +32,10 @@ const tools = [
         description: "Truy xuất thông tin chi tiết về một token tiền điện tử trên Nami Exchange.",
         schema: z.object({
             token_symbol: z.string().describe("Mã ký hiệu token, ví dụ: BTC, ETH, tên token bitcoin, ethereum,..."),
+            lang: z.enum(["vi", "en"]).optional().default("vi"),
         }),
-        func: async ({ token_symbol }) => {
-            const result = await get_nami_token_info(token_symbol);
+        func: async ({ token_symbol, lang }) => {
+            const result = await get_nami_token_info(token_symbol, lang);
             return JSON.stringify(result);
         },
     }),
